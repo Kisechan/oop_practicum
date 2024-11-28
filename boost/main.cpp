@@ -1,6 +1,7 @@
 #include <boost/beast.hpp>
 #include <boost/asio.hpp>
 #include <iostream>
+#include <hiredis.h>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -66,7 +67,7 @@ int main()
 
             http::response<http::string_body> res;
             handleRequest(req, res, orderManager);
-
+            redisConnect("localhost",8080);
             http::write(socket, res);
         }
     }
