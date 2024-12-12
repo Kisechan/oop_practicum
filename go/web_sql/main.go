@@ -1,25 +1,13 @@
 package main
 
-// func initWeb() {
-// 	router := gin.Default()
-// 	route.SetupUserRoutes(router)
-// 	route.SetupCartRoutes(router)
-// 	route.SetupCategoryRoutes(router)
-// 	route.SetupDeliveryAddressRoutes(router)
-// 	route.SetupOrderItemRoutes(router)
-// 	route.SetupOrderRoutes(router)
-// 	route.SetupProductRoutes(router)
-// 	route.SetupReviewRoutes(router)
-// 	route.SetupReviewRoutes(router)
-// 	route.SetupShippingRoutes(router)
-// 	if err := router.Run(":8080"); err != nil {
-// 		fmt.Println(err)
-// 	} else {
-// 		fmt.Println("Server started on port 8080")
-// 	}
-// }
+import (
+	"web_sql/route"
+
+	"github.com/gin-gonic/gin"
+)
 
 func main() {
-	// initWeb()
-
+	r := gin.Default()
+	route.SetupRoutes(r)
+	r.Run(":8080")
 }

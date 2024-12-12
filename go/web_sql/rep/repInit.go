@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// 定义一个全局变量db，用于后面数据库的读写操作,通常就放在全局里面
 var DB *gorm.DB
 
 func init() {
