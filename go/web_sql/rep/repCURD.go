@@ -10,21 +10,33 @@ func Create[T any](db *gorm.DB, record *T) error {
 	return db.Create(record).Error
 }
 
-func GetID[T any](db *gorm.DB, id int) (*T, error) {
+func GetID[T any](db *gorm.DB, id int, preloads ...string) (*T, error) {
 	var record T
-	err := db.First(&record, id).Error
+	query := db
+	for _, preload := range preloads {
+		query = query.Preload(preload)
+	}
+	err := query.First(&record, id).Error
 	return &record, err
 }
 
-func GetField[T any](db *gorm.DB, column string, value any) (*T, error) {
+func GetField[T any](db *gorm.DB, column string, value any, preloads ...string) (*T, error) {
 	var record T
-	err := db.Where(fmt.Sprintf("%s = ?", column), value).First(&record).Error
+	query := db
+	for _, preload := range preloads {
+		query = query.Preload(preload)
+	}
+	err := query.Where(fmt.Sprintf("%s = ?", column), value).First(&record).Error
 	return &record, err
 }
 
-func GetAll[T any](db *gorm.DB) ([]T, error) {
+func GetAll[T any](db *gorm.DB, preloads ...string) ([]T, error) {
 	var records []T
-	err := db.Find(&records).Error
+	query := db
+	for _, preload := range preloads {
+		query = query.Preload(preload)
+	}
+	err := query.Find(&records).Error
 	return records, err
 }
 
