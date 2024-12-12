@@ -39,7 +39,7 @@ func Show() {
 	// myWindow.SetContent(split)
 	// myWindow.ShowAndRun()
 	a := app.NewWithID("io.fyne.demo")
-	w := a.NewWindow("Fyne Demo")
+	w := a.NewWindow("Shop - 后台管理系统")
 
 	w.SetMaster()
 
