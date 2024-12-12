@@ -1,13 +1,12 @@
 package main
 
 import (
-	"web_sql/route"
-
-	"github.com/gin-gonic/gin"
+	"web_sql/ui"
 )
 
 func main() {
-	r := gin.Default()
-	route.SetupRoutes(r)
-	r.Run(":8080")
+	// r := gin.Default()
+	// route.SetupRoutes(r)
+	// r.Run(":8080")
+	ui.Show()
 }
