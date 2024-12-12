@@ -1,80 +1,162 @@
-#include <boost/beast.hpp>
-#include <boost/asio.hpp>
+#include "user_service.h"
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/beast/version.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/config.hpp>
+#include <cstdlib>
 #include <iostream>
-#include <hiredis.h>
+#include <memory>
+#include <string>
+#include <thread>
 
-namespace beast = boost::beast;
-namespace http = beast::http;
-namespace net = boost::asio;
-using tcp = net::ip::tcp;
+namespace beast = boost::beast;         // 从 Boost.Beast 命名空间导入
+namespace http = beast::http;           // 从 Boost.Beast 命名空间导入
+namespace net = boost::asio;            // 从 Boost.Asio 命名空间导入
+using tcp = boost::asio::ip::tcp;       // 从 Boost.Asio 命名空间导入
 
-void handleRequest(http::request<http::string_body>& req,
-    http::response<http::string_body>& res,
-    OrderManager& orderManager) 
-{
-    if (req.method() != http::verb::post) 
-    {
-        res.result(http::status::bad_request);
-        res.body() = "Invalid HTTP method";
-        return;
+// 处理 HTTP 请求
+class HttpConnection : public std::enable_shared_from_this<HttpConnection> {
+public:
+    HttpConnection(tcp::socket socket) : socket_(std::move(socket)) {}
+
+    void start() {
+        readRequest();
+        checkDeadline();
     }
-    auto body = req.body();
-    int userId;
-    std::vector<int> productIds;
 
-    try 
-    {
-        auto pos = body.find("userId:");
-        userId = std::stoi(body.substr(pos + 7, body.find(",") - (pos + 7)));
+private:
+    tcp::socket socket_;
+    beast::flat_buffer buffer_{ 8192 };
+    http::request<http::dynamic_body> request_;
+    http::response<http::dynamic_body> response_;
+    net::steady_timer deadline_{ socket_.get_executor(), std::chrono::seconds(60) };
 
-        auto products = body.substr(body.find("productIds:") + 11);
-        size_t start = 0, end;
-        while ((end = products.find(",", start)) != std::string::npos) 
-        {
-            productIds.push_back(std::stoi(products.substr(start, end - start)));
-            start = end + 1;
+    void readRequest() {
+        auto self = shared_from_this();
+
+        http::async_read(socket_, buffer_, request_,
+            [self](beast::error_code ec, std::size_t bytes_transferred) {
+                boost::ignore_unused(bytes_transferred);
+                if (!ec)
+                    self->processRequest();
+            });
+    }
+
+    void processRequest() {
+        response_.version(request_.version());
+        response_.keep_alive(false);
+
+        switch (request_.method()) {
+        case http::verb::get:
+            handleGet();
+            break;
+        case http::verb::post:
+            handlePost();
+            break;
+        default:
+            response_.result(http::status::bad_request);
+            response_.set(http::field::content_type, "text/plain");
+            beast::ostream(response_.body()) << "Invalid request method '"
+                << std::string(request_.method_string())
+                << "'";
+            break;
         }
-        productIds.push_back(std::stoi(products.substr(start)));
+
+        writeResponse();
     }
-    catch (...) 
-    {
-        res.result(http::status::bad_request);
-        res.body() = "Invalid request format.";
-        return;
+
+    void handleGet() {
+        auto path = std::string(request_.target());
+        if (path == "/api/getAllUsers") {
+            auto users = UserService::getAllUsers();
+            response_.result(http::status::ok);
+            response_.set(http::field::content_type, "application/json");
+            beast::ostream(response_.body()) << users;
+        }
+        else if (path == "/api/getUserByID") {
+            auto id = request_.target().substr(13); // 提取 ID
+            auto user = UserService::getUserByID(std::stoi(id));
+            response_.result(http::status::ok);
+            response_.set(http::field::content_type, "application/json");
+            beast::ostream(response_.body()) << user;
+        }
+        else {
+            response_.result(http::status::not_found);
+            response_.set(http::field::content_type, "text/plain");
+            beast::ostream(response_.body()) << "File not found\r\n";
+        }
     }
-    std::string result = orderManager.createOrder(userId, productIds);
-    res.result(http::status::ok);
-    res.body() = result;
+
+    void handlePost() {
+        auto path = std::string(request_.target());
+        if (path == "/api/createUser") {
+            beast::ostream(response_.body()) << "User created";
+            response_.result(http::status::ok);
+            response_.set(http::field::content_type, "text/plain");
+        }
+        else {
+            response_.result(http::status::not_found);
+            response_.set(http::field::content_type, "text/plain");
+            beast::ostream(response_.body()) << "File not found\r\n";
+        }
+    }
+
+    void writeResponse() {
+        auto self = shared_from_this();
+
+        response_.content_length(response_.body().size());
+
+        http::async_write(socket_, response_,
+            [self](beast::error_code ec, std::size_t) {
+                self->socket_.shutdown(tcp::socket::shutdown_send, ec);
+                self->deadline_.cancel();
+            });
+    }
+
+    void checkDeadline() {
+        auto self = shared_from_this();
+
+        deadline_.async_wait(
+            [self](beast::error_code ec) {
+                if (!ec) {
+                    self->socket_.close(ec);
+                }
+            });
+    }
+};
+
+// 启动 HTTP 服务器
+void HttpServer(net::io_context& ioc, tcp::endpoint endpoint) {
+    tcp::acceptor acceptor{ ioc, endpoint };
+    for (;;) {
+        auto socket = std::make_shared<tcp::socket>(ioc);
+        acceptor.accept(*socket);
+        std::make_shared<HttpConnection>(std::move(*socket))->start();
+    }
 }
 
-int main() 
-{
-    try 
-    {
-        net::io_context ioc;
-        tcp::acceptor acceptor(ioc, tcp::endpoint(tcp::v4(), 8080));
-
-
-        std::cout << "Server running on http://127.0.0.1:8080/" << std::endl;
-
-        for (;;) 
-        {
-            tcp::socket socket(ioc);
-            acceptor.accept(socket);
-            beast::flat_buffer buffer;
-            http::request<http::string_body> req;
-            http::read(socket, buffer, req);
-
-            http::response<http::string_body> res;
-            handleRequest(req, res, orderManager);
-            redisConnect("localhost",8080);
-            http::write(socket, res);
+int main(int argc, char* argv[]) {
+    try {
+        if (argc != 3) {
+            std::cerr << "Usage: http_server <address> <port>\n";
+            return EXIT_FAILURE;
         }
-    }
-    catch (std::exception& e) 
-    {
-        std::cerr << "Error: " << e.what() << std::endl;
-    }
 
-    return 0;
+        auto const address = net::ip::make_address(argv[1]);
+        auto const port = static_cast<unsigned short>(std::stoi(argv[2]));
+
+        net::io_context ioc{ 1 };
+
+        std::thread t{ [&ioc] { ioc.run(); } };
+
+        HttpServer(ioc, tcp::endpoint{ address, port });
+
+        t.join();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 }
