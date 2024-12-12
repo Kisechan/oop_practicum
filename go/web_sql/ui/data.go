@@ -1,6 +1,10 @@
 package ui
 
-import "fyne.io/fyne/v2"
+import (
+	"web_sql/rep"
+
+	"fyne.io/fyne/v2"
+)
 
 type Table struct {
 	Title, Intro string
@@ -16,8 +20,8 @@ var (
 		},
 		"users": {"用户表",
 			"存储用户信息",
-			// usersScreen,
-			welcomeScreen,
+			tableScreen[rep.User],
+			// welcomeScreen,
 		},
 		"shippings": {"物流信息表",
 			"储存物流信息",

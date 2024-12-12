@@ -51,3 +51,7 @@ func UpdateMany[T any](db *gorm.DB, id int, updates map[string]any) error {
 func DeleteID[T any](db *gorm.DB, id int) error {
 	return db.Delete(new(T), id).Error
 }
+
+// var preloads = map[string][]string{
+// 	"user": {},
+// }
