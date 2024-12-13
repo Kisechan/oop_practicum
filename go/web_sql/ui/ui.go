@@ -9,35 +9,6 @@ import (
 )
 
 func Show() {
-	// myApp := app.New()
-	// myWindow := myApp.NewWindow("Data Management")
-	// myWindow.Resize(fyne.NewSize(800, 600))
-	// myWindow.SetFixedSize(true)
-
-	// // Create content areas
-	// homeLabel := widget.NewLabel("Welcome to the Home Page")
-	// userTable := createTable("User Data")
-	// productTable := createTable("Product Data")
-
-	// // Default content area
-	// contentArea := container.NewMax(homeLabel)
-	// // Define navigation buttons
-	// nav := container.NewVBox(
-	// 	widget.NewButton("Home", func() {
-	// 		switchContent(contentArea, homeLabel)
-	// 	}),
-	// 	widget.NewButton("User", func() {
-	// 		switchContent(contentArea, userTable)
-	// 	}),
-	// 	widget.NewButton("Product", func() {
-	// 		switchContent(contentArea, productTable)
-	// 	}),
-	// )
-
-	// split := container.NewHSplit(nav, contentArea)
-	// split.SetOffset(0.2)
-	// myWindow.SetContent(split)
-	// myWindow.ShowAndRun()
 	a := app.NewWithID("io.fyne.demo")
 	w := a.NewWindow("Shop - 后台管理系统")
 
@@ -71,10 +42,11 @@ func Show() {
 		w.SetContent(makeNav(setTable, false))
 	} else {
 		split := container.NewHSplit(makeNav(setTable, true), tutorial)
-		split.Offset = 0.2
+		split.Offset = 0.18
 		w.SetContent(split)
 	}
-	w.Resize(fyne.NewSize(640, 460))
+	w.Resize(fyne.NewSize(1024, 600))
+	w.SetFixedSize(true)
 	w.ShowAndRun()
 
 }
@@ -117,10 +89,10 @@ func makeNav(setTable func(table Table), loadPrevious bool) fyne.CanvasObject {
 
 	themes := container.NewGridWithColumns(2,
 		widget.NewButton("Dark", func() {
-			// a.Settings().SetTheme(&forcedVariant{Theme: theme.DefaultTheme(), variant: theme.VariantDark})
+			a.Settings().SetTheme(&forcedVariant{Theme: theme.DefaultTheme(), variant: theme.VariantDark})
 		}),
 		widget.NewButton("Light", func() {
-			// a.Settings().SetTheme(&forcedVariant{Theme: theme.DefaultTheme(), variant: theme.VariantLight})
+			a.Settings().SetTheme(&forcedVariant{Theme: theme.DefaultTheme(), variant: theme.VariantLight})
 		}),
 	)
 

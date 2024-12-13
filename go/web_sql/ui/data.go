@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"web_sql/rep"
-
 	"fyne.io/fyne/v2"
 )
 
@@ -20,7 +18,7 @@ var (
 		},
 		"users": {"用户表",
 			"存储用户信息",
-			tableScreen[rep.User],
+			usersScreen,
 			// welcomeScreen,
 		},
 		"shippings": {"物流信息表",
