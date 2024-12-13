@@ -53,5 +53,13 @@ func DeleteID[T any](db *gorm.DB, id int) error {
 }
 
 // var preloads = map[string][]string{
-// 	"user": {},
+// 	"User":           {"Carts", "Coupons", "DeliveryAddresses", "Orders", "Reviews", "Shippings"},
+// 	"Shipping":       {"OrderItems"},
+// 	"Review":         {"Users", "Products"},
+// 	"Product":        {"Categories", "Reviews"},
+// 	"Order":          {"Users", "OrderItems"},
+// 	"OrderItem":      {"Orders", "OrderItems"},
+// 	"DeliverAddress": {"Users"},
+// 	"Coupon":         {"Users", "Products"},
+// 	"Cart":           {"Users", "Products"},
 // }
