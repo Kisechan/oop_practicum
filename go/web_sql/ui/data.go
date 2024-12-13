@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	"fyne.io/fyne/v2"
 )
 
@@ -74,4 +76,117 @@ var (
 		// "orders":  {"detailed_orders"},
 		// "widgets":     {"accordion", "activity", "button", "card", "entry", "form", "input", "progress", "text", "toolbar"},
 	}
+
+	Members = map[string][]string{
+		"Cart": {
+			"ID",
+			"UserID",
+			"ProductID",
+			"Quantity",
+			"AddTime",
+		},
+
+		" Category ": {
+			"ID",
+			"Name",
+			"ParentID",
+		},
+
+		" Coupon ": {
+			"ID",
+			"Code",
+			"Type",
+			"Discount",
+			"Minimum",
+			"UserID",
+			"ProductID",
+			"ExpirationDate",
+			"Status",
+		},
+
+		" DeliveryAddress ": {
+			"ID",
+			"UserID",
+			"Phone",
+			"Address",
+			"Name",
+		},
+
+		"OrderItem ": {
+			"ID",
+			"OrderID",
+			"ProductID",
+			"Quantity",
+			"UnitPrice",
+			"TotalPrice",
+		},
+
+		" Order ": {
+			"ID",
+			"UserID",
+			"Total",
+			"Status",
+			"CreatedTime",
+			"UpdateTime",
+		},
+
+		" Product ": {
+			"ID",
+			"Name",
+			"Description",
+			"Price",
+			"Stock",
+			"Type",
+			"CategoryID",
+			"Seller",
+			"IsActive",
+		},
+
+		" Review ": {
+			"ID",
+			"UserID",
+			"ProductID",
+			"Rating",
+			"Comment",
+			"Time",
+		},
+
+		"Shipping": {
+			"ID",
+			"OrderItemID",
+			"TrackingNumber",
+			"Carrier",
+			"Status",
+			"EstimatedDeliveredTime",
+			"CreateTime",
+			"ShippedTime",
+			"CompletedTime",
+		},
+
+		"User": {
+			"ID",
+			"Username",
+			"Password",
+			"Email",
+			"Phone",
+		},
+	}
 )
+
+func ToSnakeCase(str string) string {
+	var result strings.Builder
+	for i, char := range str {
+		if char >= 'A' && char <= 'Z' {
+			// 如果是大写字母，且不是第一个字符，添加下划线
+			if i > 0 {
+				result.WriteRune('_')
+			}
+			// 将大写字母转换为小写
+			result.WriteRune(char + 32)
+		} else {
+			// 其他字符直接写入
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
+}

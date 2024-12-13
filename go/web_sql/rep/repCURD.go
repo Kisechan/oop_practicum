@@ -47,9 +47,24 @@ func UpdateOne[T any](db *gorm.DB, id int, field string, value any) error {
 func UpdateMany[T any](db *gorm.DB, id int, updates map[string]any) error {
 	return db.Model(new(T)).Where("id = ?", id).Updates(updates).Error
 }
-
+func UpdateStruct[T any](db *gorm.DB, id int, update T) error {
+	// 使用结构体实例进行更新
+	return db.Model(new(T)).Where("id = ?", id).Updates(update).Error
+}
 func DeleteID[T any](db *gorm.DB, id int) error {
 	return db.Delete(new(T), id).Error
+}
+
+func SearchVague[T any](db *gorm.DB, keyword string, field string) ([]T, error) {
+	var records []T
+
+	// 使用模糊匹配搜索
+	result := db.Where(fmt.Sprintf("%s LIKE ?", field), "%"+keyword+"%").Find(&records)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return records, nil
 }
 
 // var preloads = map[string][]string{
