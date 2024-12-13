@@ -2,8 +2,10 @@ package rep
 
 import (
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 func Create[T any](db *gorm.DB, record *T) error {
@@ -55,16 +57,30 @@ func DeleteID[T any](db *gorm.DB, id int) error {
 	return db.Delete(new(T), id).Error
 }
 
-func SearchVague[T any](db *gorm.DB, keyword string, field string) ([]T, error) {
-	var records []T
+func SearchVague[T any](db *gorm.DB, t string, keyword string) ([]T, error) {
+	var results []T
 
-	// 使用模糊匹配搜索
-	result := db.Where(fmt.Sprintf("%s LIKE ?", field), "%"+keyword+"%").Find(&records)
+	ns := schema.NamingStrategy{}
+
+	// 构建查询条件
+	var conditions []string
+	var args []interface{}
+	for _, i := range Members[t] {
+		columnName := ns.ColumnName("", i)
+
+		// 添加模糊匹配条件
+		conditions = append(conditions, fmt.Sprintf("%s LIKE ?", columnName))
+		args = append(args, "%"+keyword+"%")
+	}
+
+	// 构建 WHERE 条件
+	whereClause := strings.Join(conditions, " OR ")
+	result := db.Where(whereClause, args...).Find(&results)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
-	return records, nil
+	return results, nil
 }
 
 // var preloads = map[string][]string{
