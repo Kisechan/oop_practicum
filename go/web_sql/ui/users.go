@@ -59,13 +59,23 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 	buttons := container.NewGridWithColumns(3,
 		widget.NewButtonWithIcon("增加信息", theme.ContentAddIcon(), func() {
 			username := widget.NewEntry()
+			username.Text = "Example User"
 			username.Validator = validation.NewRegexp(`^.+$`, "请输入用户名")
 			password := widget.NewPasswordEntry()
-			password.Validator = validation.NewRegexp(`^[A-Za-z0-9_-]+$`, "密码只能包含字母、数字、_和-")
+			password.Validator = validation.NewRegexp(`^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\|,.<>/?]+$`, "密码只能包含字母、数字、_和-")
+			password.Text = "Example_Password"
 			email := widget.NewEntry()
 			email.Validator = validation.NewRegexp(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`, "电子邮件必须符合规范")
+			email.Text = "Examplt@Email.com"
 			phone := widget.NewEntry()
-			phone.Validator = validation.NewRegexp(`^[0-9_()-]+$`, "电话号码只能含有数字、括号和-")
+			phone.Validator = validation.NewRegexp(`^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$`, "电话号码必须符合规范")
+			phone.Text = "123-456-7890"
+			validation.NewAllStrings(
+				username.Validator,
+				password.Validator,
+				email.Validator,
+				phone.Validator,
+			)
 			items := []*widget.FormItem{
 				widget.NewFormItem("用户名", username),
 				widget.NewFormItem("密码", password),
@@ -122,13 +132,17 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 		}),
 		widget.NewButtonWithIcon("修改信息", theme.DocumentCreateIcon(), func() {
 			username := widget.NewEntry()
+			username.Text = "Example User"
 			username.Validator = validation.NewRegexp(`^.+$`, "请输入用户名")
 			password := widget.NewPasswordEntry()
-			password.Validator = validation.NewRegexp(`^[A-Za-z0-9_-]+$`, "密码只能包含字母、数字、_和-")
+			password.Validator = validation.NewRegexp(`^[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':"\|,.<>/?]+$`, "密码只能包含字母、数字、_和-")
+			password.Text = "Example_Password"
 			email := widget.NewEntry()
 			email.Validator = validation.NewRegexp(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`, "电子邮件必须符合规范")
+			email.Text = "Examplt@Email.com"
 			phone := widget.NewEntry()
-			phone.Validator = validation.NewRegexp(`^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$`, "电话号码只能含有数字、括号和-")
+			phone.Validator = validation.NewRegexp(`^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$`, "电话号码必须符合规范")
+			phone.Text = "123-456-7890"
 			items := []*widget.FormItem{
 				widget.NewFormItem("用户名", username),
 				widget.NewFormItem("密码", password),

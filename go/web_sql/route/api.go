@@ -7,20 +7,29 @@ import (
 )
 
 func SetupRoutes(r *gin.Engine) {
-	userGroup := r.Group("/users")
+	// userRoutes := r.Group("/users")
 	{
-		userGroup.GET("/", control.GetAllUsers)
-		userGroup.GET("/:id", control.GetUserByID)
-		userGroup.POST("/", control.CreateUser)
-		userGroup.PUT("/:id", control.UpdateUser)
-		userGroup.DELETE("/:id", control.DeleteUser)
+		// userRoutes.POST("/register", control.Register)
+		// userRoutes.POST("/login", control.Login)
+		// userRoutes.GET("/profile", control.GetProfile)
+		// userRoutes.PUT("/profile", control.UpdateProfile)
 	}
-	// cartGroup := r.Group("/carts")
-	// {
-	// 	cartGroup.GET("/", control.GetAllCarts)
-	// 	cartGroup.GET("/:id", control.GetCartByID)
-	// 	cartGroup.POST("/", control.CreateCart)
-	// 	cartGroup.PUT("/:id", control.UpdateCart)
-	// 	cartGroup.DELETE("/:id", control.DeleteCart)
-	// }
+	productRoutes := r.Group("/products")
+	{
+		productRoutes.GET("/", control.ListProducts)
+		// productRoutes.GET("/:id", control.GetProduct)
+		// productRoutes.GET("/search", control.SearchProducts)
+	}
+	orderRoutes := r.Group("/orders")
+	{
+		orderRoutes.POST("/", control.CreateOrder)
+		orderRoutes.GET("/:id", control.GetOrder)
+		// orderRoutes.PUT("/:id/cancel", control.CancelOrder)
+	}
+	// cartRoutes := r.Group("/cart")
+	{
+		// cartRoutes.POST("/items", cartController.AddItem)
+		// cartRoutes.GET("/items", cartController.GetCartItems)
+		// cartRoutes.DELETE("/items/:id", cartController.RemoveItem)
+	}
 }
