@@ -42,7 +42,7 @@ func Show() {
 		w.SetContent(makeNav(setTable, false))
 	} else {
 		split := container.NewHSplit(makeNav(setTable, true), tutorial)
-		split.Offset = 0.18
+		split.Offset = 0.16
 		w.SetContent(split)
 	}
 	w.Resize(fyne.NewSize(1024, 600))

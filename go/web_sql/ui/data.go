@@ -35,8 +35,8 @@ var (
 		},
 		"products": {"商品表",
 			"储存商品信息",
-			// productsScreen,
-			welcomeScreen,
+			productsScreen,
+			// welcomeScreen,
 		},
 		"orders": {"订单表",
 			"储存订单信息",
@@ -71,10 +71,10 @@ var (
 	}
 
 	TablesIndex = map[string][]string{
-		"": {"welcome", "users", "shippings", "reviews", "products", "orders", "order_items", "delivery_addresses", "coupons", "categories", "carts"},
-		// "users": {"shippings_users","orders_users","delivery_addresses_users","coupons_users","carts_users"},
-		// "orders":  {"detailed_orders"},
-		// "widgets":     {"accordion", "activity", "button", "card", "entry", "form", "input", "progress", "text", "toolbar"},
+		"":         {"welcome", "users", "products"},
+		"users":    {"shippings", "orders", "delivery_addresses", "coupons", "carts"},
+		"products": {"reviews"},
+		"orders":   {"order_items"},
 	}
 )
 

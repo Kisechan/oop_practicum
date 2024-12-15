@@ -1,162 +1,52 @@
-#include "user_service.h"
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/beast/core.hpp>
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/config.hpp>
-#include <cstdlib>
 #include <iostream>
-#include <memory>
-#include <string>
-#include <thread>
 
-namespace beast = boost::beast;         // 从 Boost.Beast 命名空间导入
-namespace http = beast::http;           // 从 Boost.Beast 命名空间导入
-namespace net = boost::asio;            // 从 Boost.Asio 命名空间导入
-using tcp = boost::asio::ip::tcp;       // 从 Boost.Asio 命名空间导入
+namespace beast = boost::beast;         // 从Boost Beast库中导入
+namespace http = beast::http;           // 导入HTTP模块
+namespace net = boost::asio;            // 导入Boost Asio库
+using tcp = net::ip::tcp;               // 导入TCP模块
 
-// 处理 HTTP 请求
-class HttpConnection : public std::enable_shared_from_this<HttpConnection> {
-public:
-    HttpConnection(tcp::socket socket) : socket_(std::move(socket)) {}
+int main() {
+    while(1)
+    {
+        try {
+            // 创建I/O上下文
+            net::io_context ioc;
 
-    void start() {
-        readRequest();
-        checkDeadline();
-    }
+            // 解析服务器地址和端口
+            tcp::resolver resolver(ioc);
+            auto const results = resolver.resolve("localhost", "8080");
 
-private:
-    tcp::socket socket_;
-    beast::flat_buffer buffer_{ 8192 };
-    http::request<http::dynamic_body> request_;
-    http::response<http::dynamic_body> response_;
-    net::steady_timer deadline_{ socket_.get_executor(), std::chrono::seconds(60) };
+            // 创建连接
+            tcp::socket socket(ioc);
+            net::connect(socket, results);
 
-    void readRequest() {
-        auto self = shared_from_this();
+            // 创建HTTP GET请求
+            http::request<http::string_body> req{ http::verb::get, "/products/search?keyword=手机&category=手机", 11 };
+            req.set(http::field::host, "localhost");
+            req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
-        http::async_read(socket_, buffer_, request_,
-            [self](beast::error_code ec, std::size_t bytes_transferred) {
-                boost::ignore_unused(bytes_transferred);
-                if (!ec)
-                    self->processRequest();
-            });
-    }
+            // 发送请求
+            http::write(socket, req);
 
-    void processRequest() {
-        response_.version(request_.version());
-        response_.keep_alive(false);
+            // 读取响应
+            beast::flat_buffer buffer;
+            http::response<http::dynamic_body> res;
+            http::read(socket, buffer, res);
 
-        switch (request_.method()) {
-        case http::verb::get:
-            handleGet();
-            break;
-        case http::verb::post:
-            handlePost();
-            break;
-        default:
-            response_.result(http::status::bad_request);
-            response_.set(http::field::content_type, "text/plain");
-            beast::ostream(response_.body()) << "Invalid request method '"
-                << std::string(request_.method_string())
-                << "'";
-            break;
+            // 输出响应
+            std::cout << "Status: " << res.result_int() << std::endl;
+            std::cout << "Body: " << beast::buffers_to_string(res.body().data()) << std::endl;
+
+            // 关闭连接
+            socket.shutdown(tcp::socket::shutdown_both);
         }
-
-        writeResponse();
-    }
-
-    void handleGet() {
-        auto path = std::string(request_.target());
-        if (path == "/api/getAllUsers") {
-            auto users = UserService::getAllUsers();
-            response_.result(http::status::ok);
-            response_.set(http::field::content_type, "application/json");
-            beast::ostream(response_.body()) << users;
-        }
-        else if (path == "/api/getUserByID") {
-            auto id = request_.target().substr(13); // 提取 ID
-            auto user = UserService::getUserByID(std::stoi(id));
-            response_.result(http::status::ok);
-            response_.set(http::field::content_type, "application/json");
-            beast::ostream(response_.body()) << user;
-        }
-        else {
-            response_.result(http::status::not_found);
-            response_.set(http::field::content_type, "text/plain");
-            beast::ostream(response_.body()) << "File not found\r\n";
+        catch (std::exception const& e) {
+            std::cerr << "Error: " << e.what() << std::endl;
         }
     }
 
-    void handlePost() {
-        auto path = std::string(request_.target());
-        if (path == "/api/createUser") {
-            beast::ostream(response_.body()) << "User created";
-            response_.result(http::status::ok);
-            response_.set(http::field::content_type, "text/plain");
-        }
-        else {
-            response_.result(http::status::not_found);
-            response_.set(http::field::content_type, "text/plain");
-            beast::ostream(response_.body()) << "File not found\r\n";
-        }
-    }
-
-    void writeResponse() {
-        auto self = shared_from_this();
-
-        response_.content_length(response_.body().size());
-
-        http::async_write(socket_, response_,
-            [self](beast::error_code ec, std::size_t) {
-                self->socket_.shutdown(tcp::socket::shutdown_send, ec);
-                self->deadline_.cancel();
-            });
-    }
-
-    void checkDeadline() {
-        auto self = shared_from_this();
-
-        deadline_.async_wait(
-            [self](beast::error_code ec) {
-                if (!ec) {
-                    self->socket_.close(ec);
-                }
-            });
-    }
-};
-
-// 启动 HTTP 服务器
-void HttpServer(net::io_context& ioc, tcp::endpoint endpoint) {
-    tcp::acceptor acceptor{ ioc, endpoint };
-    for (;;) {
-        auto socket = std::make_shared<tcp::socket>(ioc);
-        acceptor.accept(*socket);
-        std::make_shared<HttpConnection>(std::move(*socket))->start();
-    }
-}
-
-int main(int argc, char* argv[]) {
-    try {
-        if (argc != 3) {
-            std::cerr << "Usage: http_server <address> <port>\n";
-            return EXIT_FAILURE;
-        }
-
-        auto const address = net::ip::make_address(argv[1]);
-        auto const port = static_cast<unsigned short>(std::stoi(argv[2]));
-
-        net::io_context ioc{ 1 };
-
-        std::thread t{ [&ioc] { ioc.run(); } };
-
-        HttpServer(ioc, tcp::endpoint{ address, port });
-
-        t.join();
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+    return 0;
 }

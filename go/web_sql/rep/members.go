@@ -60,9 +60,10 @@ var Members = map[string][]string{
 		"Price",
 		"Stock",
 		"Type",
-		"CategoryID",
+		"Category",
 		"Seller",
 		"IsActive",
+		"Icon",
 	},
 
 	"Review": {

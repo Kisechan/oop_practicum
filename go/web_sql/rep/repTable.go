@@ -77,12 +77,12 @@ type Product struct {
 	Price       float64 `gorm:"type:decimal(10,2);not null" json:"price"`
 	Stock       int     `gorm:"not null" json:"stock"`
 	Type        string  `gorm:"type:enum('presale','normal');default:'normal';not null" json:"type"`
-	CategoryID  *int    `gorm:"default:null" json:"category_id"`
+	Category    string  `gorm:"default:null" json:"category"`
 	Seller      string  `gorm:"type:varchar(100);not null" json:"seller"`
-	IsActive    string  `gorm:"type:enum('true','false');default:'true';not null" json:"isactive"`
+	IsActive    string  `gorm:"type:enum('true','false');default:'true';not null" json:"is_active"`
+	Icon        *string `gorm:"defualt:null" json:"icon"`
 
-	Category *Category `gorm:"foreignKey:CategoryID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	Reviews  []Review  `gorm:"foreignKey:ProductID"`
+	Reviews []Review `gorm:"foreignKey:ProductID"`
 }
 
 type Review struct {
