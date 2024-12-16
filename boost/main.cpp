@@ -1,52 +1,62 @@
-#include <boost/asio.hpp>
-#include <boost/beast.hpp>
-#include <boost/beast/http.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/asio/connect.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <cstdlib>
 #include <iostream>
+#include <string>
 
-namespace beast = boost::beast;         // 从Boost Beast库中导入
-namespace http = beast::http;           // 导入HTTP模块
-namespace net = boost::asio;            // 导入Boost Asio库
-using tcp = net::ip::tcp;               // 导入TCP模块
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace http = beast::http;           // from <boost/beast/http.hpp>
+namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
+namespace net = boost::asio;            // from <boost/asio.hpp>
+using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
-int main() {
-    while(1)
-    {
-        try {
-            // 创建I/O上下文
-            net::io_context ioc;
+int main(int argc, char** argv) {
+    try {
+        
+        std::string host = "localhost";
+        std::string port = "8080";
 
-            // 解析服务器地址和端口
-            tcp::resolver resolver(ioc);
-            auto const results = resolver.resolve("localhost", "8080");
+        // 创建I/O上下文
+        net::io_context ioc;
 
-            // 创建连接
-            tcp::socket socket(ioc);
-            net::connect(socket, results);
+        // 解析主机名和端口
+        tcp::resolver resolver(ioc);
+        auto const results = resolver.resolve(host, port);
 
-            // 创建HTTP GET请求
-            http::request<http::string_body> req{ http::verb::get, "/products/search?keyword=手机&category=手机", 11 };
-            req.set(http::field::host, "localhost");
-            req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+        // 创建并连接WebSocket客户端
+        websocket::stream<tcp::socket> ws(ioc);
+        net::connect(ws.next_layer(), results.begin(), results.end());
 
-            // 发送请求
-            http::write(socket, req);
+        // 设置WebSocket选项并完成握手
+        ws.set_option(websocket::stream_base::decorator(
+            [](websocket::request_type& req) {
+                req.set(http::field::user_agent,
+                std::string(BOOST_BEAST_VERSION_STRING) + " websocket-client-coro");
+            }));
+        ws.handshake(host, "/ws");
 
-            // 读取响应
-            beast::flat_buffer buffer;
-            http::response<http::dynamic_body> res;
-            http::read(socket, buffer, res);
+        std::cout << "Connected to Go WebSocket server" << std::endl;
 
-            // 输出响应
-            std::cout << "Status: " << res.result_int() << std::endl;
-            std::cout << "Body: " << beast::buffers_to_string(res.body().data()) << std::endl;
+        // 发送消息到Go服务器
+        std::string msg = R"({"type":"ReadUser", "payload": {"id":6045}})";
+        ws.write(net::buffer(msg));
+        std::cout << "Sent to Go: " << msg << std::endl;
 
-            // 关闭连接
-            socket.shutdown(tcp::socket::shutdown_both);
-        }
-        catch (std::exception const& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
-        }
+        // 读取Go服务器的响应
+        beast::flat_buffer buffer;
+        ws.read(buffer);
+        std::cout << "Received from Go: " << beast::make_printable(buffer.data()) << std::endl;
+
+        // 关闭WebSocket连接
+        ws.close(websocket::close_code::normal);
+        std::cout << "WebSocket connection closed" << std::endl;
+    }
+    catch (std::exception const& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }

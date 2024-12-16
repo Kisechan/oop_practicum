@@ -1,262 +1,129 @@
-// package control
-
-// import (
-// 	"net/http"
-// 	"strconv"
-// 	"web_sql/rep"
-
-// 	"github.com/gin-gonic/gin"
-// 	"gorm.io/gorm"
-// )
-
-// // 获取用户信息
-// func GetUser(c *gin.Context) {
-// 	id, err := strconv.Atoi(c.Param("id"))
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-// 		return
-// 	}
-
-// 	// 查询数据库
-// 	user, err := rep.GetID[rep.User](rep.DB, id)
-// 	if err != nil {
-// 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-// 		return
-// 	}
-
-// 	// 返回响应
-// 	c.JSON(http.StatusOK, user)
-// }
-
-// // 获取所有用户（分页）
-// func ListUsers(c *gin.Context) {
-// 	var users []rep.User
-// 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-// 	if err != nil {
-// 		page = 1
-// 	}
-// 	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-// 	if err != nil {
-// 		pageSize = 10
-// 	}
-
-// 	offset := (page - 1) * pageSize
-// 	if err := rep.DB.Offset(offset).Limit(pageSize).Find(&users).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询用户失败"})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, users)
-// }
-
-// // 创建新用户
-// func CreateUser(c *gin.Context) {
-// 	var user rep.User
-// 	if err := c.ShouldBindJSON(&user); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-// 		return
-// 	}
-
-// 	if err := rep.DB.Create(&user).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusCreated, user)
-// }
-
-// // 更新用户信息
-// func UpdateUser(c *gin.Context) {
-// 	idStr := c.Param("id")
-// 	id, err := strconv.Atoi(idStr)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-// 		return
-// 	}
-
-// 	var updateData rep.User
-// 	if err := c.ShouldBindJSON(&updateData); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-// 		return
-// 	}
-
-// 	// 查询用户
-// 	user, err := rep.GetID[rep.User](rep.DB, id)
-// 	if err != nil {
-// 		if err == gorm.ErrRecordNotFound {
-// 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-// 		} else {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		}
-// 		return
-// 	}
-
-// 	// 更新数据
-// 	if err := rep.DB.Model(&user).Updates(updateData).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully", "user": user})
-// }
-
-// // 删除用户
-// func DeleteUser(c *gin.Context) {
-// 	idStr := c.Param("id")
-// 	id, err := strconv.Atoi(idStr)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-// 		return
-// 	}
-
-// 	_, err = rep.GetID[rep.User](rep.DB, id)
-// 	if err != nil {
-// 		if err == gorm.ErrRecordNotFound {
-// 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-// 		} else {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		}
-// 		return
-// 	}
-
-// 	// 删除用户
-// 	if err := rep.DeleteID[rep.User](rep.DB, id); err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
-// }
-
-// // 批量删除用户
-// func DeleteUsers(c *gin.Context) {
-// 	var ids []int
-// 	if err := c.ShouldBindJSON(&ids); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-// 		return
-// 	}
-
-// 	if len(ids) == 0 {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "No user IDs provided"})
-// 		return
-// 	}
-
-// 	if err := rep.DB.Delete(&rep.User{}, ids).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"message": "Users deleted successfully"})
-// }
-
-// // 导出用户数据
-// func ExportUsers(c *gin.Context) {
-// 	var users []rep.User
-// 	if err := rep.DB.Find(&users).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "导出用户数据失败"})
-// 		return
-// 	}
-
-// 	// 假设你有一个导出功能，这里可以将用户数据转换成 CSV 或其它格式
-// 	// 此处仅返回数据作为示例
-// 	c.JSON(http.StatusOK, gin.H{"data": users})
-// }
-
-// // 分页查询用户
-// func PaginatedUsers(c *gin.Context) {
-// 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-// 	if err != nil {
-// 		page = 1
-// 	}
-// 	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-// 	if err != nil {
-// 		pageSize = 10
-// 	}
-
-// 	var users []rep.User
-// 	offset := (page - 1) * pageSize
-// 	if err := rep.DB.Offset(offset).Limit(pageSize).Find(&users).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "分页查询失败"})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"data": users, "page": page, "pageSize": pageSize})
-// }
-
 package control
 
 import (
 	"net/http"
-	"strconv"
-	"web_sql/utils"
+	"web_sql/rep"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// 获取所有用户
-func GetAllUsers(c *gin.Context) {
-	// 调用 C++ 程序的接口
-	users, err := utils.CallCppAPI("getAllUsers")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+func LoginHandler(c *gin.Context) {
+	var loginRequest struct {
+		Phone    string `json:"phone"`
+		Password string `json:"password"`
+	}
+
+	// 绑定 JSON 数据到 loginRequest
+	if err := c.ShouldBindJSON(&loginRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, users)
-}
 
-// 获取单个用户
-func GetUserByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	// 调用 C++ 程序的接口
-	user, err := utils.CallCppAPI("getUserByID", id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户未找到"})
+	// 查询用户
+	var user rep.User
+	if err := rep.DB.Where("phone = ?", loginRequest.Phone).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Phone number invalid"})
 		return
 	}
-	c.JSON(http.StatusOK, user)
+
+	// 验证密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid phone number or password"})
+		return
+	}
+
+	// 返回成功响应
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"user":    user,
+	})
 }
 
-// 创建用户
-func CreateUser(c *gin.Context) {
-	var user map[string]interface{}
+// 注册接口
+func RegisterHandler(c *gin.Context) {
+	var user rep.User
+
+	// 绑定 JSON 数据到 user 结构体
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// 调用 C++ 程序的接口
-	result, err := utils.CallCppAPI("createUser", user)
+
+	// 密码加密
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Hash Password Failed"})
 		return
 	}
-	c.JSON(http.StatusCreated, result)
+	user.Password = string(hashedPassword)
+
+	// 创建用户
+	if err := rep.Create[rep.User](rep.DB, &user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Register Failed!"})
+		return
+	}
+
+	// 返回成功响应
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "User registered successfully",
+		"user":    user,
+	})
 }
 
-// 更新用户
-func UpdateUser(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	var user map[string]interface{}
-	if err := c.ShouldBindJSON(&user); err != nil {
+// 查看个人信息接口
+func GetUserInfoHandler(c *gin.Context) {
+	// 获取路径参数 id
+	userID := c.Param("id")
+
+	// 查询用户
+	var user rep.User
+	if err := rep.DB.Preload("Carts").Preload("DeliveryAddresses").Preload("Orders").Preload("Reviews").First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// 返回用户信息
+	c.JSON(http.StatusOK, gin.H{
+		"user": user,
+	})
+}
+
+// 修改个人信息接口
+func UpdateUserInfoHandler(c *gin.Context) {
+	var updateRequest struct {
+		ID       int     `json:"id"`
+		Username string  `json:"username"`
+		Email    *string `json:"email"`
+		Phone    string  `json:"phone"`
+	}
+
+	// 绑定 JSON 数据到 updateRequest
+	if err := c.ShouldBindJSON(&updateRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// 调用 C++ 程序的接口
-	result, err := utils.CallCppAPI("updateUser", id, user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, result)
-}
 
-// 删除用户
-func DeleteUser(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	// 调用 C++ 程序的接口
-	_, err := utils.CallCppAPI("deleteUser", id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 查询用户
+	var user rep.User
+	if err := rep.DB.First(&user, updateRequest.ID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "用户删除成功"})
+
+	// 更新用户信息
+	user.Username = updateRequest.Username
+	user.Email = updateRequest.Email
+	user.Phone = updateRequest.Phone
+
+	if err := rep.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
+
+	// 返回成功响应
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User updated successfully",
+		"user":    user,
+	})
 }
