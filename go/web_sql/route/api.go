@@ -21,19 +21,24 @@ func SetupRoutes(r *gin.Engine) {
 	}
 	productRoutes := r.Group("/products")
 	{
+		productRoutes.GET("/", control.GetAllProductsHandler)
 		productRoutes.GET("/:id", control.GetProductsHandler)
-		// productRoutes.GET("/:id", control.GetProduct)
-		// productRoutes.GET("/search", control.SearchProducts)
+		productRoutes.GET("/search", control.SearchProductsHandler)
 	}
-	// orderRoutes := r.Group("/orders")
-	// {
-	// 	orderRoutes.POST("/", control.CreateOrder)
-	// 	orderRoutes.GET("/:id", control.GetOrder)
-	// }
 	cartRoutes := r.Group("/cart")
 	{
 		cartRoutes.POST("/items", control.AddCartHandler)
-		// cartRoutes.GET("/items", control.)
 		cartRoutes.DELETE("/items/:id", control.RemoveCartHandler)
+		cartRoutes.GET("/items", control.GetCartHandler)
+	}
+	reviewRoutes := r.Group("/reviews")
+	{
+		reviewRoutes.POST("/", control.CreateReviewHandler)
+		reviewRoutes.GET("/product/:id", control.GetProductReviewsHandler)
+	}
+	couponRoutes := r.Group("/coupons")
+	{
+		couponRoutes.GET("/user/:id", control.GetUserCouponsHandler)
+		couponRoutes.POST("/use", control.UseCouponHandler)
 	}
 }
