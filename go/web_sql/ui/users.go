@@ -33,7 +33,7 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 				case 1:
 					label.SetText(record.Username)
 				case 2:
-					label.SetText(record.Password)
+					label.SetText("**********")
 				case 3:
 					label.SetText(*record.Email)
 				case 4:

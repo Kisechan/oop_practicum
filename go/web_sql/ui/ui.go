@@ -88,10 +88,10 @@ func makeNav(setTable func(table Table), loadPrevious bool) fyne.CanvasObject {
 	}
 
 	themes := container.NewGridWithColumns(2,
-		widget.NewButton("Dark", func() {
+		widget.NewButton("夜间模式", func() {
 			a.Settings().SetTheme(&forcedVariant{Theme: theme.DefaultTheme(), variant: theme.VariantDark})
 		}),
-		widget.NewButton("Light", func() {
+		widget.NewButton("白天模式", func() {
 			a.Settings().SetTheme(&forcedVariant{Theme: theme.DefaultTheme(), variant: theme.VariantLight})
 		}),
 	)
