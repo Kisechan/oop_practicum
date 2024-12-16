@@ -1,41 +1,91 @@
 package control
 
 import (
+	"net/http"
+	"time"
+	"web_sql/rep"
+
 	"github.com/gin-gonic/gin"
 )
 
 // 加购物车接口
 func AddCartHandler(c *gin.Context) {
-	// username := c.PostForm("username")
-	// productID := c.PostForm("product_id")
+	var cartItem rep.Cart
 
-	// cartMutex.Lock()
-	// defer cartMutex.Unlock()
+	// 绑定 JSON 数据到 cartItem 结构体
+	if err := c.ShouldBindJSON(&cartItem); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	// carts[username] = append(carts[username], productID)
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"status":  "success",
-	// 	"message": "添加成功",
-	// })
+	// 检查用户是否存在
+	var user rep.User
+	if err := rep.DB.First(&user, cartItem.UserID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// 检查产品是否存在
+	var product rep.Product
+	if err := rep.DB.First(&product, cartItem.ProductID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	// 检查库存是否足够
+	if product.Stock < cartItem.Quantity {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
+		return
+	}
+
+	// 创建购物车项
+	cartItem.AddTime = time.Now()
+	if err := rep.DB.Create(&cartItem).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add item to cart"})
+		return
+	}
+
+	// 返回成功响应
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Item added to cart successfully",
+		"cart":    cartItem,
+	})
 }
 
 // 删除购物车接口
 func RemoveCartHandler(c *gin.Context) {
-	// username := c.PostForm("username")
-	// productID := c.PostForm("product_id")
+	// 获取路径参数 id
+	cartItemID := c.Param("id")
 
-	// cartMutex.Lock()
-	// defer cartMutex.Unlock()
+	// 查询购物车项
+	var cartItem rep.Cart
+	if err := rep.DB.First(&cartItem, cartItemID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Cart item not found"})
+		return
+	}
 
-	// for i, id := range carts[username] {
-	// 	if id == productID {
-	// 		carts[username] = append(carts[username][:i], carts[username][i+1:]...)
-	// 		break
-	// 	}
-	// }
+	// 删除购物车项
+	if err := rep.DB.Delete(&cartItem).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove item from cart"})
+		return
+	}
 
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"status":  "success",
-	// 	"message": "删除成功",
-	// })
+	// 返回成功响应
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Item removed from cart successfully",
+	})
+}
+
+func GetCartHandler(c *gin.Context) {
+	userID := c.Query("user_id")
+
+	var cartItems []rep.Cart
+	if err := rep.DB.Where("user_id = ?", userID).Find(&cartItems).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart items"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"cart_items": cartItems,
+	})
 }
