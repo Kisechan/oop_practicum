@@ -1,0 +1,6 @@
+.vs/
+boost/
+x64/
+*.sln
+*.vcxproj*
+json.hpp

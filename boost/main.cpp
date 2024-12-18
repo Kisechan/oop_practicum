@@ -1,62 +1,77 @@
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio/connect.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <cstdlib>
 #include <iostream>
 #include <string>
+#include <hiredis/hiredis.h>
+//#include <boost/json.hpp>
+#include <boost/asio.hpp>
 
-namespace beast = boost::beast;         // from <boost/beast.hpp>
-namespace http = beast::http;           // from <boost/beast/http.hpp>
-namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
-namespace net = boost::asio;            // from <boost/asio.hpp>
-using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
+//// 处理订单结算逻辑
+//void processOrderSettlement(const std::string& orderJson) {
+//    // 解析 JSON 消息
+//    boost::json::value json = boost::json::parse(orderJson);
+//    int orderId = json.at("order_id").as_int64();
+//    int userId = json.at("user_id").as_int64();
+//    double amount = json.at("amount").as_double();
+//    std::string paymentMethod = json.at("payment_method").as_string().c_str();
+//
+//    std::cout << "Processing order settlement: " << orderId << std::endl;
+//
+//    // 模拟订单结算逻辑
+//    // 1. 检查用户余额
+//    // 2. 扣除用户余额
+//    // 3. 更新订单状态
+//
+//    // 调用持久层更新订单状态
+//    cpr::Response r = cpr::Post(
+//        cpr::Url{ "http://localhost:8081/api/orders/update" },
+//        cpr::Body{ orderJson },
+//        cpr::Header{ {"Content-Type", "application/json"} }
+//    );
+//
+//    if (r.status_code == 200) {
+//        std::cout << "Order " << orderId << " successfully updated to paid." << std::endl;
+//    }
+//    else {
+//        std::cerr << "Failed to update order: " << r.status_code << " - " << r.text << std::endl;
+//    }
+//}
+//
+//// 从 Redis 消费消息
+//void consumeRedisMessages(redisContext* context) {
+//    redisReply* reply;
+//    while (true) {
+//        reply = (redisReply*)redisCommand(context, "BLPOP order_queue 0");
+//        if (reply && reply->type == REDIS_REPLY_ARRAY && reply->element[1]) {
+//            std::string message(reply->element[1]->str, reply->element[1]->len);
+//            std::cout << "Received message: " << message << std::endl;
+//
+//            // 处理订单结算
+//            processOrderSettlement(message);
+//        }
+//        freeReplyObject(reply);
+//    }
+//}
 
-int main(int argc, char** argv) {
-    try {
-        
-        std::string host = "localhost";
-        std::string port = "8080";
-
-        // 创建I/O上下文
-        net::io_context ioc;
-
-        // 解析主机名和端口
-        tcp::resolver resolver(ioc);
-        auto const results = resolver.resolve(host, port);
-
-        // 创建并连接WebSocket客户端
-        websocket::stream<tcp::socket> ws(ioc);
-        net::connect(ws.next_layer(), results.begin(), results.end());
-
-        // 设置WebSocket选项并完成握手
-        ws.set_option(websocket::stream_base::decorator(
-            [](websocket::request_type& req) {
-                req.set(http::field::user_agent,
-                std::string(BOOST_BEAST_VERSION_STRING) + " websocket-client-coro");
-            }));
-        ws.handshake(host, "/ws");
-
-        std::cout << "Connected to Go WebSocket server" << std::endl;
-
-        // 发送消息到Go服务器
-        std::string msg = R"({"type":"ReadUser", "payload": {"id":6045}})";
-        ws.write(net::buffer(msg));
-        std::cout << "Sent to Go: " << msg << std::endl;
-
-        // 读取Go服务器的响应
-        beast::flat_buffer buffer;
-        ws.read(buffer);
-        std::cout << "Received from Go: " << beast::make_printable(buffer.data()) << std::endl;
-
-        // 关闭WebSocket连接
-        ws.close(websocket::close_code::normal);
-        std::cout << "WebSocket connection closed" << std::endl;
+int main() {
+    // 连接 Redis
+    redisContext* context = redisConnect("127.0.0.1", 6379);
+    if (context == NULL || context->err) {
+        if (context) {
+            std::cerr << "Redis connection error: " << context->errstr << std::endl;
+        }
+        else {
+            std::cerr << "Redis connection error: cannot allocate redis context" << std::endl;
+        }
+        return 1;
     }
-    catch (std::exception const& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
 
-    return EXIT_SUCCESS;
+    std::cout << "Connected to Redis." << std::endl;
+
+    // 开始消费消息
+    //consumeRedisMessages(context);
+
+    // 关闭 Redis 连接
+    redisFree(context);
+    std::cout << "Redis Freed" << std::endl;
+
+    return 0;
 }
