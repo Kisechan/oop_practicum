@@ -1,6 +1,7 @@
 package route
 
 import (
+	"fmt"
 	"web_sql/control"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,8 @@ func APIInit() {
 	r := gin.Default()
 	SetupRoutes(r)
 	r.Run(":8080")
+
+	fmt.Println("Web API Start at 8080 Successfully")
 }
 func SetupRoutes(r *gin.Engine) {
 	userRoutes := r.Group("/users")
@@ -40,5 +43,10 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		couponRoutes.GET("/user/:id", control.GetUserCouponsHandler)
 		couponRoutes.POST("/use", control.UseCouponHandler)
+	}
+	orderRoutes := r.Group("/orders")
+	{
+		orderRoutes.POST("/checkout", control.CheckoutHandler)
+		orderRoutes.POST("/checkout/result", control.CheckoutResultHandler)
 	}
 }
