@@ -1,5 +1,5 @@
 .vs/
-boost/
+cpp/
 x64/
 *.sln
 *.vcxproj*

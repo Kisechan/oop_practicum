@@ -29,7 +29,8 @@ func CheckoutHandler(c *gin.Context) {
 		"status":       req.Status,
 		"created_time": req.CreatedTime,
 		"update_time":  req.UpdateTime,
-		"order_items":  req.OrderItems,
+		"product_id":   req.ProductID,
+		"order_items":  req.Quantity,
 	}
 
 	// 将消息发送到 Redis 队列

@@ -35,15 +35,15 @@ type Coupon struct {
 	Product *Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
-type DeliveryAddress struct {
-	ID      int    `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID  int    `gorm:"not null" json:"user_id"`
-	Phone   string `gorm:"type:varchar(15);not null" json:"phone"`
-	Address string `gorm:"type:text;not null" json:"address"`
-	Name    string `gorm:"type:varchar(40);not null" json:"name"`
+// type DeliveryAddress struct {
+// 	ID      int    `gorm:"primaryKey;autoIncrement" json:"id"`
+// 	UserID  int    `gorm:"not null" json:"user_id"`
+// 	Phone   string `gorm:"type:varchar(15);not null" json:"phone"`
+// 	Address string `gorm:"type:text;not null" json:"address"`
+// 	Name    string `gorm:"type:varchar(40);not null" json:"name"`
 
-	User User `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-}
+// 	User User `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+// }
 
 // type OrderItem struct {
 // 	ID         int     `gorm:"primaryKey;autoIncrement" json:"id"`
