@@ -23,7 +23,21 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 		func(i widget.TableCellID, o fyne.CanvasObject) {
 			label := o.(*widget.Label)
 			if i.Row == 0 {
-				label.SetText(rep.Members["User"][i.Col])
+				// 表头
+				switch i.Col {
+				case 0:
+					label.SetText("ID")
+				case 1:
+					label.SetText("用户名")
+				case 2:
+					label.SetText("密码")
+				case 3:
+					label.SetText("电子邮箱")
+				case 4:
+					label.SetText("电话")
+				case 5:
+					label.SetText("地址")
+				}
 				label.TextStyle = fyne.TextStyle{Bold: true}
 			} else {
 				record := records[i.Row-1]
@@ -38,6 +52,12 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 					label.SetText(*record.Email)
 				case 4:
 					label.SetText(record.Phone)
+				case 5:
+					if record.Address != nil {
+						label.SetText(CutStr(*record.Address, 15))
+					} else {
+						label.SetText("")
+					}
 				}
 			}
 		},
@@ -45,6 +65,8 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 	table.SetColumnWidth(1, 140)
 	table.SetColumnWidth(2, 140)
 	table.SetColumnWidth(3, 220)
+	table.SetColumnWidth(4, 150)
+	table.SetColumnWidth(5, 180)
 
 	var selectedRow int
 	table.OnSelected = func(id widget.TableCellID) {
@@ -70,17 +92,22 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 			phone := widget.NewEntry()
 			phone.Validator = validation.NewRegexp(`^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$`, "电话号码必须符合规范")
 			phone.Text = "123-456-7890"
+			address := widget.NewEntry()
+			address.Text = "Example Address"
+			address.Validator = validation.NewRegexp(`^.+$`, "请输入地址")
 			validation.NewAllStrings(
 				username.Validator,
 				password.Validator,
 				email.Validator,
 				phone.Validator,
+				address.Validator,
 			)
 			items := []*widget.FormItem{
 				widget.NewFormItem("用户名", username),
 				widget.NewFormItem("密码", password),
 				widget.NewFormItem("电子邮箱", email),
 				widget.NewFormItem("电话号码", phone),
+				widget.NewFormItem("收货地址", address),
 			}
 			form := dialog.NewForm("增加一条信息", "确认", "取消", items, func(b bool) {
 				if !b {
@@ -91,6 +118,7 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 					Password: password.Text,
 					Email:    &email.Text,
 					Phone:    phone.Text,
+					Address:  &address.Text,
 				})
 				if entry.Text == "" {
 					records, _ = rep.GetAll[rep.User](rep.DB)
@@ -143,17 +171,26 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 			phone := widget.NewEntry()
 			phone.Validator = validation.NewRegexp(`^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$`, "电话号码必须符合规范")
 			phone.Text = "123-456-7890"
+			address := widget.NewEntry()
+			address.Text = "Example Address"
+			address.Validator = validation.NewRegexp(`^.+$`, "请输入地址")
 			items := []*widget.FormItem{
 				widget.NewFormItem("用户名", username),
 				widget.NewFormItem("密码", password),
 				widget.NewFormItem("电子邮箱", email),
 				widget.NewFormItem("电话号码", phone),
+				widget.NewFormItem("收货地址", address),
 			}
 
 			username.Text = records[selectedRow].Username
 			password.Text = records[selectedRow].Password
 			email.Text = *records[selectedRow].Email
 			phone.Text = records[selectedRow].Phone
+			if records[selectedRow].Address != nil {
+				address.Text = *records[selectedRow].Address
+			} else {
+				address.Text = ""
+			}
 
 			form := dialog.NewForm("修改信息", "确认", "取消", items, func(b bool) {
 				if !b {
@@ -164,6 +201,7 @@ func usersScreen(win fyne.Window) fyne.CanvasObject {
 					Password: password.Text,
 					Email:    &email.Text,
 					Phone:    phone.Text,
+					Address:  &address.Text,
 				})
 
 				if entry.Text == "" {

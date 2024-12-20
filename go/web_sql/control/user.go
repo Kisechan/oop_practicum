@@ -2,6 +2,7 @@ package control
 
 import (
 	"net/http"
+	"strconv"
 	"web_sql/rep"
 
 	"github.com/gin-gonic/gin"
@@ -74,11 +75,11 @@ func RegisterHandler(c *gin.Context) {
 // 查看个人信息接口
 func GetUserInfoHandler(c *gin.Context) {
 	// 获取路径参数 id
-	userID := c.Param("id")
+	userID, _ := strconv.Atoi(c.Param("id"))
 
 	// 查询用户
 	var user rep.User
-	if err := rep.DB.Preload("Carts").Preload("DeliveryAddresses").Preload("Orders").Preload("Reviews").First(&user, userID).Error; err != nil {
+	if err := rep.DB.Preload("Carts").Preload("Orders").First(&user, userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
