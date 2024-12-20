@@ -24,7 +24,29 @@ func productsScreen(win fyne.Window) fyne.CanvasObject {
 		func(i widget.TableCellID, o fyne.CanvasObject) {
 			label := o.(*widget.Label)
 			if i.Row == 0 {
-				label.SetText(rep.Members["Product"][i.Col])
+				// 表头
+				switch i.Col {
+				case 0:
+					label.SetText("ID")
+				case 1:
+					label.SetText("名称")
+				case 2:
+					label.SetText("描述")
+				case 3:
+					label.SetText("价格")
+				case 4:
+					label.SetText("库存")
+				case 5:
+					label.SetText("发售类型")
+				case 6:
+					label.SetText("类型")
+				case 7:
+					label.SetText("商家名称")
+				case 8:
+					label.SetText("是否可用")
+				case 9:
+					label.SetText("图标")
+				}
 				label.TextStyle = fyne.TextStyle{Bold: true}
 			} else {
 				record := records[i.Row-1]

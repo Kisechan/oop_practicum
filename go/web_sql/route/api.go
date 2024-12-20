@@ -24,7 +24,7 @@ func SetupRoutes(r *gin.Engine) {
 	}
 	productRoutes := r.Group("/products")
 	{
-		productRoutes.GET("/", control.GetAllProductsHandler)
+		productRoutes.GET("/", control.GetProductsHandler)
 		productRoutes.GET("/:id", control.GetProductsHandler)
 		productRoutes.GET("/search", control.SearchProductsHandler)
 	}
@@ -48,5 +48,7 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		orderRoutes.POST("/checkout", control.CheckoutHandler)
 		orderRoutes.POST("/checkout/result", control.CheckoutResultHandler)
+		orderRoutes.GET("/checkout/result", control.GetCheckoutResultHandler)
 	}
+
 }

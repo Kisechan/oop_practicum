@@ -17,12 +17,13 @@ using tcp = net::ip::tcp;               // 简化命名空间
 bool checkInventory(int productId, int quantity) {
     // 模拟库存检查（实际场景中需要从数据库或缓存中查询）
     std::cout << "Checking inventory for product " << productId << " with quantity " << quantity << std::endl;
-    return false; // 假设库存不足
+    return true; // 假设库存充足
 }
 
 // 发送秒杀结果到 Go 端
-void sendSeckillResult(int orderId, bool success, const std::string& message) {
+void sendSeckillResult(const std::string& orderId, bool success, const std::string& message) {
     try {
+        std::cout << "\nStart Sending Seckill Results\n" << std::endl;
         // 创建 I/O 上下文
         net::io_context ioc;
 
@@ -35,11 +36,11 @@ void sendSeckillResult(int orderId, bool success, const std::string& message) {
         net::connect(socket, results.begin(), results.end());
 
         // 构建 HTTP POST 请求
-        http::request<http::string_body> req{ http::verb::post, "/api/seckill/result", 11 };
+        http::request<http::string_body> req{ http::verb::post, "/orders/checkout/result", 11 };
         req.set(http::field::host, "localhost");
         req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
         req.set(http::field::content_type, "application/json");
-        req.body() = "{\"order_id\": " + std::to_string(orderId) + ", \"status\": \"" + (success ? "success" : "failed") + "\", \"message\": \"" + message + "\"}";
+        req.body() = "{\"order_id\": \"" + orderId + "\", \"status\": \"" + (success ? "success" : "failed") + "\", \"message\": \"" + message + "\"}";
         req.prepare_payload();
 
         // 发送请求
@@ -51,7 +52,7 @@ void sendSeckillResult(int orderId, bool success, const std::string& message) {
         http::read(socket, buffer, res);
 
         // 输出响应
-        std::cout << "Response: " << res << std::endl;
+        std::cout << "Sending Results Response: " << res << std::endl;
 
         // 关闭连接
         socket.shutdown(tcp::socket::shutdown_both);
@@ -65,10 +66,11 @@ void sendSeckillResult(int orderId, bool success, const std::string& message) {
 void createOrder(const std::string& orderJson) {
     // 解析 JSON 消息
     boost::json::value json = boost::json::parse(orderJson);
-    int orderId = json.at("order_id").as_int64();
+    std::string orderId = json.at("order_id").as_string().c_str();
     int userId = json.at("user_id").as_int64();
     int productId = json.at("product_id").as_int64();
     int quantity = json.at("quantity").as_int64();
+    double total = json.at("total").as_double();
 
     std::cout << "Processing seckill order: " << orderId << std::endl;
 
@@ -78,7 +80,7 @@ void createOrder(const std::string& orderJson) {
         sendSeckillResult(orderId, false, "Insufficient inventory");
         return;
     }
-
+    std::cout << "\nStart Making Order Requests\n" << std::endl;
     // 构建订单创建请求
     try {
         // 创建 I/O 上下文
@@ -97,7 +99,7 @@ void createOrder(const std::string& orderJson) {
         req.set(http::field::host, "localhost");
         req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
         req.set(http::field::content_type, "application/json");
-        req.body() = orderJson;
+        req.body() = "{\"id\": \"" + orderId + "\", \"user_id\": " + std::to_string(userId) + ", \"product_id\": " + std::to_string(productId) + ", \"quantity\": " + std::to_string(quantity) + ", \"total\": " + std::to_string(total) + ", \"status\": \"pending\"}";
         req.prepare_payload();
 
         // 发送请求
@@ -109,7 +111,7 @@ void createOrder(const std::string& orderJson) {
         http::read(socket, buffer, res);
 
         // 输出响应
-        std::cout << "Response: " << res << std::endl;
+        std::cout << "Make Order Response: " << res << std::endl;
 
         // 关闭连接
         socket.shutdown(tcp::socket::shutdown_both);
@@ -131,8 +133,13 @@ void consumeRedisMessages(redisContext* context) {
         if (reply && reply->type == REDIS_REPLY_ARRAY && reply->element[1]) {
             std::string message(reply->element[1]->str, reply->element[1]->len);
             std::cout << "Received message: " << message << std::endl;
-
+            if (message == "") 
+            {
+                std::cout << "Message is null, skipped" << std::endl;
+                continue;
+            }
             // 处理秒杀订单
+            std::cout << "\nStart Resolving Seckill Requests\n" << std::endl;
             createOrder(message);
         }
         freeReplyObject(reply);
@@ -140,7 +147,6 @@ void consumeRedisMessages(redisContext* context) {
 }
 
 int main() {
-    std::cout << "Start Test" << std::endl;
     // 连接 Redis
     redisContext* context = redisConnect("127.0.0.1", 6379);
     if (context == NULL || context->err) {
@@ -153,7 +159,7 @@ int main() {
         return 1;
     }
 
-    std::cout << "Connected to Redis!" << std::endl;
+    std::cout << "Connected to Redis!Let's Start!" << std::endl;
 
     // 开始消费消息
     consumeRedisMessages(context);

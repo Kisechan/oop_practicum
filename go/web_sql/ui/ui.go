@@ -9,7 +9,7 @@ import (
 )
 
 func Show() {
-	a := app.NewWithID("io.fyne.demo")
+	a := app.NewWithID("io.shop.fyne-demo")
 	w := a.NewWindow("Shop - 后台管理系统")
 
 	w.SetMaster()

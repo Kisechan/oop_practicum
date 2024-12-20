@@ -15,24 +15,22 @@ type Cart struct {
 	Product Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
-type Category struct {
-	ID       int    `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name     string `gorm:"type:varchar(100);not null" json:"name"`
-	ParentID int    `gorm:"default:0" json:"parentid"`
-}
+// type Category struct {
+// 	ID       int    `gorm:"primaryKey;autoIncrement" json:"id"`
+// 	Name     string `gorm:"type:varchar(100);not null" json:"name"`
+// 	ParentID int    `gorm:"default:0" json:"parentid"`
+// }
 
 type Coupon struct {
-	ID             int        `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code           string     `gorm:"type:varchar(32);not null" json:"code"`
-	Type           string     `gorm:"type:enum('percent','minus');default:'minus';not null" json:"type"`
-	Discount       float64    `gorm:"type:decimal(5,2);default:0.00;not null" json:"discount"`
-	Minimum        float64    `gorm:"type:decimal(10,2);default:0.00;not null" json:"minimum"`
-	UserID         int        `gorm:"not null" json:"user_id"`
-	ExpirationDate *time.Time `gorm:"default:null" json:"expiration_date"`
-	Status         string     `gorm:"type:enum('available','used','expired');default:'available';not null" json:"status"`
+	ID             int       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code           string    `gorm:"type:varchar(32);not null" json:"code"`
+	Discount       float64   `gorm:"type:decimal(5,2);default:0.00;not null" json:"discount"`
+	Minimum        float64   `gorm:"type:decimal(10,2);default:0.00;not null" json:"minimum"`
+	UserID         int       `gorm:"not null" json:"user_id"`
+	ExpirationDate time.Time `gorm:"default:null" json:"expiration_date"`
+	Status         string    `gorm:"type:enum('available','used','expired');default:'available';not null" json:"status"`
 
-	User    User     `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Product *Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	User User `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 // type DeliveryAddress struct {
@@ -62,7 +60,7 @@ type Order struct {
 	UserID      int       `gorm:"not null" json:"user_id"`
 	Total       *float64  `gorm:"type:decimal(10,2);default:null" json:"total"`
 	Status      string    `gorm:"type:enum('pending','paid','shipping','completed');default:'pending';not null" json:"status"`
-	CreatedTime time.Time `gorm:"not null;autoUpdateTime" json:"created_time"`
+	CreatedTime time.Time `gorm:"not null" json:"created_time"`
 	UpdateTime  time.Time `gorm:"not null;autoUpdateTime" json:"update_time"`
 	ProductID   int       `gorm:"not null" json:"product_id"`
 	Quantity    int       `gorm:"not null" json:"quantity"`

@@ -9,11 +9,11 @@ var Members = map[string][]string{
 		"AddTime",
 	},
 
-	"Category": {
-		"ID",
-		"Name",
-		"ParentID",
-	},
+	// "Category": {
+	// 	"ID",
+	// 	"Name",
+	// 	"ParentID",
+	// },
 
 	"Coupon": {
 		"ID",
@@ -27,22 +27,22 @@ var Members = map[string][]string{
 		"Status",
 	},
 
-	"DeliveryAddress": {
-		"ID",
-		"UserID",
-		"Phone",
-		"Address",
-		"Name",
-	},
+	// "DeliveryAddress": {
+	// 	"ID",
+	// 	"UserID",
+	// 	"Phone",
+	// 	"Address",
+	// 	"Name",
+	// },
 
-	"OrderItem": {
-		"ID",
-		"OrderID",
-		"ProductID",
-		"Quantity",
-		"UnitPrice",
-		"TotalPrice",
-	},
+	// "OrderItem": {
+	// 	"ID",
+	// 	"OrderID",
+	// 	"ProductID",
+	// 	"Quantity",
+	// 	"UnitPrice",
+	// 	"TotalPrice",
+	// },
 
 	"Order": {
 		"ID",
@@ -75,17 +75,17 @@ var Members = map[string][]string{
 		"Time",
 	},
 
-	"Shipping": {
-		"ID",
-		"OrderItemID",
-		"TrackingNumber",
-		"Carrier",
-		"Status",
-		"EstimatedDeliveredTime",
-		"CreateTime",
-		"ShippedTime",
-		"CompletedTime",
-	},
+	// "Shipping": {
+	// 	"ID",
+	// 	"OrderItemID",
+	// 	"TrackingNumber",
+	// 	"Carrier",
+	// 	"Status",
+	// 	"EstimatedDeliveredTime",
+	// 	"CreateTime",
+	// 	"ShippedTime",
+	// 	"CompletedTime",
+	// },
 
 	"User": {
 		"ID",
@@ -93,5 +93,6 @@ var Members = map[string][]string{
 		"Password",
 		"Email",
 		"Phone",
+		"Address",
 	},
 }

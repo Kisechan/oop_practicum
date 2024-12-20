@@ -9,19 +9,14 @@ import (
 
 // 查看商品接口
 func GetProductsHandler(c *gin.Context) {
-	// 获取路径参数 id
-	productID := c.Param("id")
-
-	// 查询产品
-	var product rep.Product
-	if err := rep.DB.Preload("Reviews").First(&product, productID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+	var products []rep.Product
+	if err := rep.DB.Order("RAND()").Limit(50).Find(&products).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
 	}
 
-	// 返回产品信息
 	c.JSON(http.StatusOK, gin.H{
-		"product": product,
+		"products": products,
 	})
 }
 
