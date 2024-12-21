@@ -1,6 +1,7 @@
 package control
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"web_sql/rep"
@@ -34,10 +35,10 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
+	fmt.Println("User:", user, "Login Successfully")
 	// 返回成功响应
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"user":    user,
+		"user": user,
 	})
 }
 

@@ -10,7 +10,7 @@ import (
 // 查看商品接口
 func GetProductsHandler(c *gin.Context) {
 	var products []rep.Product
-	if err := rep.DB.Order("RAND()").Limit(50).Find(&products).Error; err != nil {
+	if err := rep.DB.Order("RAND()").Limit(20).Find(&products).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
 	}
@@ -35,12 +35,12 @@ func GetAllProductsHandler(c *gin.Context) {
 // 根据关键词搜索商品接口
 func SearchProductsHandler(c *gin.Context) {
 	// 获取查询参数
-	name := c.Query("name")          // 产品名称
-	category := c.Query("category")  // 产品类别
-	minPrice := c.Query("min_price") // 最低价格
-	maxPrice := c.Query("max_price") // 最高价格
-	seller := c.Query("seller")      // 卖家
-	isActive := c.Query("is_active") // 是否激活
+	name := c.Query("name") // 产品名称
+	// category := c.Query("category")  // 产品类别
+	// minPrice := c.Query("min_price") // 最低价格
+	// maxPrice := c.Query("max_price") // 最高价格
+	// seller := c.Query("seller")      // 卖家
+	// isActive := c.Query("is_active") // 是否激活
 
 	// 构建查询条件
 	var products []rep.Product
@@ -49,21 +49,21 @@ func SearchProductsHandler(c *gin.Context) {
 	if name != "" {
 		query = query.Where("name LIKE ?", "%"+name+"%")
 	}
-	if category != "" {
-		query = query.Where("category = ?", category)
-	}
-	if minPrice != "" {
-		query = query.Where("price >= ?", minPrice)
-	}
-	if maxPrice != "" {
-		query = query.Where("price <= ?", maxPrice)
-	}
-	if seller != "" {
-		query = query.Where("seller = ?", seller)
-	}
-	if isActive != "" {
-		query = query.Where("is_active = ?", isActive)
-	}
+	// if category != "" {
+	// 	query = query.Where("category = ?", category)
+	// }
+	// if minPrice != "" {
+	// 	query = query.Where("price >= ?", minPrice)
+	// }
+	// if maxPrice != "" {
+	// 	query = query.Where("price <= ?", maxPrice)
+	// }
+	// if seller != "" {
+	// 	query = query.Where("seller = ?", seller)
+	// }
+	// if isActive != "" {
+	// 	query = query.Where("is_active = ?", isActive)
+	// }
 
 	// 执行查询
 	if err := query.Find(&products).Error; err != nil {
