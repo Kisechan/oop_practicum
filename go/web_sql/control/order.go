@@ -4,17 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 )
-
-var redisClient = redis.NewClient(&redis.Options{
-	Addr: "localhost:6379",
-})
 
 type OrderRequest struct {
 	OrderID   string  `json:"order_id"`
@@ -107,19 +101,4 @@ func GetCheckoutResultHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"order_id": orderID, "status": status})
-}
-
-func RedisInit() {
-	ctx := context.Background()
-	_, err := redisClient.Ping(ctx).Result()
-	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
-	}
-
-	// 创建队列
-	err = redisClient.LPush(ctx, "seckill_queue", "").Err()
-	if err != nil {
-		log.Fatalf("Failed to create Redis queue: %v", err)
-	}
-	fmt.Println("Connected to Redis and Create Redis Queue Successfully!")
 }

@@ -1,6 +1,8 @@
 package control
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 	"web_sql/rep"
@@ -8,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 加购物车接口
 func AddCartHandler(c *gin.Context) {
 	var cartItem rep.Cart
 
@@ -45,6 +46,10 @@ func AddCartHandler(c *gin.Context) {
 		return
 	}
 
+	// 删除与该用户相关的购物车缓存
+	cacheKey := fmt.Sprintf("user_cart_%d", cartItem.UserID)
+	redisClient.Del(ctx, cacheKey)
+
 	// 返回成功响应
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Item added to cart successfully",
@@ -52,7 +57,6 @@ func AddCartHandler(c *gin.Context) {
 	})
 }
 
-// 删除购物车接口
 func RemoveCartHandler(c *gin.Context) {
 	// 获取路径参数 id
 	cartItemID := c.Param("id")
@@ -70,6 +74,10 @@ func RemoveCartHandler(c *gin.Context) {
 		return
 	}
 
+	// 删除与该用户相关的购物车缓存
+	cacheKey := fmt.Sprintf("user_cart_%d", cartItem.UserID)
+	redisClient.Del(ctx, cacheKey)
+
 	// 返回成功响应
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Item removed from cart successfully",
@@ -79,12 +87,34 @@ func RemoveCartHandler(c *gin.Context) {
 func GetCartHandler(c *gin.Context) {
 	userID := c.Query("user_id")
 
+	// 尝试从 Redis 缓存中获取购物车信息
+	cacheKey := fmt.Sprintf("user_cart_%s", userID)
+	cachedCartItems, err := redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		// 如果缓存中存在购物车信息，直接返回
+		var cartItems []rep.Cart
+		if err := json.Unmarshal([]byte(cachedCartItems), &cartItems); err == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"cart_items": cartItems,
+			})
+			return
+		}
+	}
+
+	// 查询用户的购物车项
 	var cartItems []rep.Cart
 	if err := rep.DB.Where("user_id = ?", userID).Find(&cartItems).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart items"})
 		return
 	}
 
+	// 将购物车信息存入 Redis 缓存
+	cartItemsJSON, err := json.Marshal(cartItems)
+	if err == nil {
+		redisClient.Set(ctx, cacheKey, cartItemsJSON, time.Hour) // 缓存 1 小时
+	}
+
+	// 返回购物车信息
 	c.JSON(http.StatusOK, gin.H{
 		"cart_items": cartItems,
 	})
