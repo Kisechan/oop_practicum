@@ -1,7 +1,10 @@
 package control
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 	"web_sql/rep"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +22,10 @@ func CreateReviewHandler(c *gin.Context) {
 		return
 	}
 
+	// 删除与该商品相关的评论缓存
+	cacheKey := fmt.Sprintf("product_reviews_%d", review.ProductID)
+	redisClient.Del(ctx, cacheKey)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Review created successfully",
 		"review":  review,
@@ -28,12 +35,34 @@ func CreateReviewHandler(c *gin.Context) {
 func GetProductReviewsHandler(c *gin.Context) {
 	productID := c.Param("id")
 
+	// 尝试从 Redis 缓存中获取评论信息
+	cacheKey := fmt.Sprintf("product_reviews_%s", productID)
+	cachedReviews, err := redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		// 如果缓存中存在评论信息，直接返回
+		var reviews []rep.Review
+		if err := json.Unmarshal([]byte(cachedReviews), &reviews); err == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"reviews": reviews,
+			})
+			return
+		}
+	}
+
+	// 查询商品的评论
 	var reviews []rep.Review
 	if err := rep.DB.Preload("Users").Where("product_id = ?", productID).Find(&reviews).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reviews"})
 		return
 	}
 
+	// 将评论信息存入 Redis 缓存
+	reviewsJSON, err := json.Marshal(reviews)
+	if err == nil {
+		redisClient.Set(ctx, cacheKey, reviewsJSON, time.Hour) // 缓存 1 小时
+	}
+
+	// 返回评论信息
 	c.JSON(http.StatusOK, gin.H{
 		"reviews": reviews,
 	})
