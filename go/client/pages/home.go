@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"client/str"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -93,13 +94,39 @@ func createProductCardsFromAPI() []fyne.CanvasObject {
 		image.FillMode = canvas.ImageFillContain
 		image.SetMinSize(fyne.NewSize(100, 100))
 
+		nameLabel := widget.NewRichText(
+			&widget.TextSegment{
+				Text: str.CutStr(product.Name, 17),
+				Style: widget.RichTextStyle{
+					SizeName: theme.SizeNameHeadingText,
+					// Inline: true,
+				},
+			},
+		)
+
+		priceLabel := widget.NewRichText(
+			&widget.TextSegment{
+				Text: fmt.Sprintf("￥%.2f", product.Price),
+				Style: widget.RichTextStyle{
+					ColorName: theme.ColorNameError,
+					SizeName:  theme.SizeNameHeadingText,
+					Alignment: fyne.TextAlignTrailing,
+					TextStyle: fyne.TextStyle{
+						Bold:   true,
+						Italic: true,
+					},
+				},
+			},
+		)
+		// sellerLabel := widget.NewLabel(product.Seller)
+
 		// 创建卡片内容
 		cardContent := container.NewVBox(
 			image,
-			widget.NewLabel(product.Name),
-			widget.NewLabel(fmt.Sprintf("￥%.2f", product.Price)),
-			widget.NewLabel("商家: "+product.Seller),
-			widget.NewButton("查看详情", func() {
+			nameLabel,
+			priceLabel,
+			// sellerLabel,
+			widget.NewButton("详情", func() {
 				// 打开新窗口展示商品详细页面
 				showProductDetailWindow(product)
 			}),
