@@ -14,6 +14,7 @@ func main() {
 	a := app.NewWithID("com.kisechan.shopclientnt")
 	a.Settings().SetTheme(theme.LightTheme())
 	w := a.NewWindow("网购客户端")
+
 	// 导航栏
 	tabs := container.NewAppTabs(
 		container.NewTabItemWithIcon("主页", theme.HomeIcon(), pages.CreateHomePage()),
@@ -25,7 +26,7 @@ func main() {
 
 	// 设置窗口内容
 	w.SetContent(tabs)
-	// 360, 780为正常手机屏幕大小
+	// 360, 780为一般的手机屏幕大小
 	w.Resize(fyne.NewSize(360, 480))
 	w.SetFixedSize(true)
 	w.ShowAndRun()

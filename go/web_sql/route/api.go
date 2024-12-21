@@ -26,7 +26,7 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		productRoutes.GET("/", control.GetProductsHandler)
 		productRoutes.GET("/:id", control.GetProductsHandler)
-		productRoutes.GET("/search", control.SearchProductsHandler)
+		productRoutes.POST("/search", control.SearchProductsHandler)
 	}
 	cartRoutes := r.Group("/cart")
 	{
