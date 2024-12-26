@@ -8,45 +8,23 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
-type Product struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-	Stock       int     `json:"stock"`
-	Type        string  `json:"type"`
-	Category    string  `json:"category"`
-	Seller      string  `json:"seller"`
-	IsActive    string  `json:"is_active"`
-	Icon        *string `json:"icon"`
-}
-
-type ProductsResponse struct {
-	Products []Product `json:"products"`
-}
-
-type Review struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
-	ProductID int       `json:"product_id"`
-	Rating    string    `json:"rating"`
-	Comment   string    `json:"comment"`
-	Time      time.Time `json:"time"`
-}
-
-type ReviewsResponse struct {
-	Reviews []Review `json:"reviews"`
-}
+// 图片缓存
+var (
+	imageCache     = make(map[string]*fyne.StaticResource)
+	imageCacheLock sync.RWMutex
+)
 
 // 主页面
 func CreateHomePage() fyne.CanvasObject {
@@ -55,124 +33,142 @@ func CreateHomePage() fyne.CanvasObject {
 	searchEntry.SetPlaceHolder("搜索商品...")
 
 	// 商品列表
-	productCards := createProductCardsFromAPI("")
-	// 创建可滑动的卡片群
-	scrollableCards := container.NewVScroll(container.NewGridWithColumns(1, productCards...))
+	var (
+		products    []Product
+		productList *widget.List
+	)
 
+	// 创建可滑动的列表
+	productList = widget.NewList(
+		func() int {
+			return len(products)
+		},
+		func() fyne.CanvasObject {
+			// 创建列表项的模板
+			image := canvas.NewImageFromResource(theme.FileImageIcon())
+			image.FillMode = canvas.ImageFillContain
+			image.SetMinSize(fyne.NewSize(70, 70))
+
+			nameLabel := widget.NewLabel("商品名称")
+			priceLabel := widget.NewLabel("价格")
+
+			return container.NewGridWithRows(
+				2,
+				image,
+				container.NewGridWithRows(
+					3,
+					nameLabel,
+					priceLabel,
+					widget.NewButton("详情", func() {}),
+				),
+			)
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			product := products[i]
+			items := o.(*fyne.Container).Objects
+
+			image := items[0].(*canvas.Image)
+			nameLabel := items[1].(*fyne.Container).Objects[0].(*widget.Label)
+			priceLabel := items[1].(*fyne.Container).Objects[1].(*widget.Label)
+			detailButton := items[1].(*fyne.Container).Objects[2].(*widget.Button)
+
+			// 异步加载图片（带缓存）
+			if product.Icon != nil && *product.Icon != "" {
+				loadImageWithCache(*product.Icon, image)
+			} else {
+				image.Resource = theme.FileImageIcon()
+				image.Refresh()
+			}
+
+			nameLabel.SetText(str.CutStr(product.Name, 17))
+			nameLabel.TextStyle.Bold = true
+			priceLabel.SetText(fmt.Sprintf("￥ %.2f", product.Price))
+			priceLabel.Alignment = fyne.TextAlignTrailing
+			priceLabel.TextStyle.Italic = true
+			priceLabel.Theme().Color(theme.ColorNameError, theme.VariantLight)
+			detailButton.OnTapped = func() {
+				showProductDetailWindow(product)
+			}
+		},
+	)
+
+	products, _ = fetchProductsFromAPI(searchEntry.Text)
+	productList.Refresh() // 刷新列表
+	fmt.Println("Product List Refreshed Successfully")
 	// 搜索按钮
 	searchButton := widget.NewButtonWithIcon("搜索", theme.SearchIcon(), func() {
-		productCards = createProductCardsFromAPI(searchEntry.Text)
-		scrollableCards.Content = container.NewGridWithColumns(1, productCards...)
-		scrollableCards.Refresh() // 刷新卡片群
-		fmt.Println("scrollableCards Refreshed Successfully")
+		products = nil
+		products, _ = fetchProductsFromAPI(searchEntry.Text)
+		productList.Refresh() // 刷新列表
+		fmt.Println("Product List Refreshed Successfully")
 	})
 
-	// 布局：顶部固定搜索框，下方为可滑动的卡片群
+	// 布局：顶部固定搜索框，下方为可滑动的列表
 	return container.NewBorder(
 		container.NewBorder(nil, nil, nil, searchButton, searchEntry), // 顶部搜索框
-		nil,             // 底部无内容
-		nil,             // 左侧无内容
-		nil,             // 右侧无内容
-		scrollableCards, // 下方可滑动的卡片群
+		nil,         // 底部无内容
+		nil,         // 左侧无内容
+		nil,         // 右侧无内容
+		productList, // 下方可滑动的列表
 	)
 }
 
-// 从API获取商品数据并创建商品卡片
-func createProductCardsFromAPI(search string) []fyne.CanvasObject {
-	// 调用API获取商品数据
-	products, err := fetchProductsFromAPI(search)
-	if err != nil {
-		fmt.Println("Error fetching products:", err)
-		return nil
+// 异步加载图片（带缓存）
+func loadImageWithCache(url string, image *canvas.Image) {
+	// 检查缓存
+	imageCacheLock.RLock()
+	if resource, ok := imageCache[url]; ok {
+		image.Resource = resource
+		image.Refresh()
+		imageCacheLock.RUnlock()
+		return
 	}
+	imageCacheLock.RUnlock()
 
-	// 创建卡片
-	var cards []fyne.CanvasObject
-	for _, product := range products {
-		// 加载图片
-		var image *canvas.Image
-		if product.Icon != nil && *product.Icon != "" {
-			parsedURL, err := url.Parse(*product.Icon)
-			if err != nil {
-				fmt.Println("Error parsing image URL:", err)
-				image = canvas.NewImageFromResource(theme.FileImageIcon())
-			} else {
-				uri := storage.NewURI(parsedURL.String())
-				if uri == nil {
-					fmt.Println("Invalid URI for product:", product.ID, "Name:", product.Name)
-					image = canvas.NewImageFromResource(theme.FileImageIcon())
-				} else {
-					image = canvas.NewImageFromURI(uri)
-				}
-			}
-		} else {
-			image = canvas.NewImageFromResource(theme.FileImageIcon())
+	// 异步下载图片
+	go func() {
+		resp, err := http.Get(url)
+		if err != nil {
+			fyne.LogError("Failed to download image", err)
+			return
 		}
-		image.FillMode = canvas.ImageFillContain
-		image.SetMinSize(fyne.NewSize(100, 100))
+		defer resp.Body.Close()
 
-		nameLabel := widget.NewRichText(
-			&widget.TextSegment{
-				Text: str.CutStr(product.Name, 17),
-				Style: widget.RichTextStyle{
-					SizeName: theme.SizeNameHeadingText,
-					// Inline: true,
-				},
-			},
-		)
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fyne.LogError("Failed to read image data", err)
+			return
+		}
 
-		priceLabel := widget.NewRichText(
-			&widget.TextSegment{
-				Text: fmt.Sprintf("￥%.2f", product.Price),
-				Style: widget.RichTextStyle{
-					ColorName: theme.ColorNameError,
-					SizeName:  theme.SizeNameHeadingText,
-					Alignment: fyne.TextAlignTrailing,
-					TextStyle: fyne.TextStyle{
-						Bold:   true,
-						Italic: true,
-					},
-				},
-			},
-		)
-		// sellerLabel := widget.NewLabel(product.Seller)
+		resource := fyne.NewStaticResource("image.jpg", data)
 
-		// 创建卡片内容
-		cardContent := container.NewVBox(
-			image,
-			nameLabel,
-			priceLabel,
-			// sellerLabel,
-			widget.NewButton("详情", func() {
-				// 打开新窗口展示商品详细页面
-				showProductDetailWindow(product)
-			}),
-		)
+		// 更新缓存
+		imageCacheLock.Lock()
+		imageCache[url] = resource
+		imageCacheLock.Unlock()
 
-		// 创建卡片
-		card := widget.NewCard("", "", cardContent)
-		cards = append(cards, card)
-	}
-	fmt.Println("Cards Created Finished Successfully")
-	return cards
+		// 更新图片
+		image.Resource = resource
+		image.Refresh()
+	}()
 }
 
-// 调用API获取商品数据
+// 从API获取商品数据
 func fetchProductsFromAPI(search string) ([]Product, error) {
 	var resp *http.Response
 	var err error
 	if search != "" {
-		searchRequest := map[string]string{
-			"name": search,
-		}
-		searchJSON, err := json.Marshal(searchRequest)
-		if err != nil {
-			fmt.Println("Error encoding search request:", err)
-			return nil, err
-		}
+		// searchRequest := map[string]string{
+		// 	"name": search,
+		// }
+		// searchJSON, err := json.Marshal(searchRequest)
+		// if err != nil {
+		// 	fmt.Println("Error encoding search request:", err)
+		// 	return nil, err
+		// }
 
 		// 发送搜索请求
-		resp, err = http.Post("http://localhost:8080/products/search", "application/json", bytes.NewBuffer(searchJSON))
+		resp, err = http.Post("http://localhost:8080/products/search?name="+search, "application/json", nil)
 		if err != nil {
 			fmt.Println("Error get request:", err)
 			return nil, err
@@ -192,15 +188,13 @@ func fetchProductsFromAPI(search string) ([]Product, error) {
 		return nil, err
 	}
 
-	// 打印 API 返回的原始数据
-	// fmt.Println("API Response:", string(body))
-
 	var productsResponse ProductsResponse
 	if err := json.Unmarshal(body, &productsResponse); err != nil {
 		fmt.Println("Error unmarshal reqbody:", err)
 		return nil, err
 	}
-
+	fmt.Println("Search:", search)
+	fmt.Println("ProductsResponse:", productsResponse)
 	return productsResponse.Products, nil
 }
 
@@ -251,14 +245,29 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 	if err != nil {
 		fmt.Println("Error fetching reviews:", err)
 	}
-
+	fmt.Println("获取评论:", reviews)
 	// 创建评论列表
 	reviewList := container.NewVBox()
 	for _, review := range reviews {
+		commentItem := widget.NewLabel(review.Comment)
+		commentItem.Wrapping = fyne.TextWrapWord
+		usernameItem := widget.NewLabel(review.User.Username)
+		usernameItem.Wrapping = fyne.TextWrapWord
+		usernameItem.TextStyle.Bold = true
+		timeItem := widget.NewLabel(review.Time.Format("2006-01-02 15:04:05"))
+		timeItem.TextStyle.Italic = true
+		timeItem.Alignment = fyne.TextAlignTrailing
+		ratingItem := widget.NewLabel(fmt.Sprintf("%s ✰", review.Rating))
+		ratingItem.Alignment = fyne.TextAlignTrailing
 		reviewItem := container.NewVBox(
-			widget.NewLabel(fmt.Sprintf("评分: %s", review.Rating)),
-			widget.NewLabel(fmt.Sprintf("评论: %s", review.Comment)),
-			widget.NewLabel(fmt.Sprintf("时间: %s", review.Time.Format("2006-01-02 15:04:05"))),
+			container.NewGridWithColumns(
+				2,
+				usernameItem,
+				ratingItem,
+			),
+			commentItem,
+			timeItem,
+			widget.NewSeparator(),
 		)
 		reviewList.Add(reviewItem)
 	}
@@ -266,24 +275,47 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 	// 创建评论输入框
 	commentEntry := widget.NewEntry()
 	commentEntry.SetPlaceHolder("输入评论...")
-	ratingEntry := widget.NewEntry()
-	ratingEntry.SetPlaceHolder("输入评分 (1-5)...")
 
-	// 创建提交按钮
+	ratingLabel := widget.NewLabel("5")
+	ratingSlider := widget.NewSlider(1, 5)
+	ratingSlider.Step = 1
+	ratingSlider.OnChanged = func(value float64) {
+		fmt.Println("用户选择的评分:", int(value))
+		ratingLabel.SetText(fmt.Sprintf("%d分", int(value)))
+	}
+	ratingSlider.SetValue(5)
+
+	// 提交按钮
 	submitButton := widget.NewButton("提交评论", func() {
 		// 发送评论
-		sendReview(product.ID, ratingEntry.Text, commentEntry.Text)
+		sendReview(product.ID, fmt.Sprintf("%d", int(ratingSlider.Value)), commentEntry.Text)
 		// 刷新评论列表
 		reviews, err := fetchReviewsFromAPI(product.ID)
+		fmt.Println("获取评论:", reviews)
 		if err != nil {
 			fmt.Println("Error fetching reviews:", err)
 		} else {
 			reviewList.Objects = nil // 清空评论列表
 			for _, review := range reviews {
+				commentItem := widget.NewLabel(review.Comment)
+				commentItem.Wrapping = fyne.TextWrapWord
+				usernameItem := widget.NewLabel(review.User.Username)
+				usernameItem.Wrapping = fyne.TextWrapWord
+				usernameItem.TextStyle.Bold = true
+				timeItem := widget.NewLabel(review.Time.Format("2006-01-02 15:04:05"))
+				timeItem.TextStyle.Italic = true
+				timeItem.Alignment = fyne.TextAlignTrailing
+				ratingItem := widget.NewLabel(fmt.Sprintf("%s ✰", review.Rating))
+				ratingItem.Alignment = fyne.TextAlignTrailing
 				reviewItem := container.NewVBox(
-					widget.NewLabel(fmt.Sprintf("评分: %s", review.Rating)),
-					widget.NewLabel(fmt.Sprintf("评论: %s", review.Comment)),
-					widget.NewLabel(fmt.Sprintf("时间: %s", review.Time.Format("2006-01-02 15:04:05"))),
+					container.NewGridWithColumns(
+						2,
+						usernameItem,
+						ratingItem,
+					),
+					commentItem,
+					timeItem,
+					widget.NewSeparator(),
 				)
 				reviewList.Add(reviewItem)
 			}
@@ -292,11 +324,16 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 	})
 
 	// 创建评论输入部分
-	commentInput := container.NewVBox(
-		widget.NewLabel("添加评论"),
-		ratingEntry,
+	commentInput := container.NewGridWithRows(
+		2,
 		commentEntry,
-		submitButton,
+		container.NewGridWithColumns(
+			4,
+			widget.NewLabel("评分:"),
+			ratingSlider,
+			ratingLabel,
+			submitButton,
+		),
 	)
 
 	// 创建详细页面内容
@@ -304,12 +341,14 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 		image,
 		widget.NewLabel("商品名称: "+product.Name),
 		widget.NewLabel(fmt.Sprintf("价格: ￥%.2f", product.Price)),
-		widget.NewLabel("商家: "+product.Seller),
-		widget.NewLabel("描述:"),
+		widget.NewLabel("卖家: "+product.Seller),
+		widget.NewLabel("商品描述:"),
 		descriptionLabel,
-		widget.NewLabel("评论:"),
-		reviewList,
+		widget.NewSeparator(),
+		widget.NewLabel("评论区"),
 		commentInput,
+		widget.NewSeparator(),
+		reviewList,
 	)
 
 	// 创建底部按钮
@@ -322,8 +361,46 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 		}),
 		widget.NewButton("加入购物车", func() {
 			fmt.Println("加入购物车:", product.Name)
+			if currentUser == nil {
+				// 显示提示框
+				dialog.ShowInformation("未登录", "请先登录以加入购物车", fyne.CurrentApp().Driver().AllWindows()[0])
+				return
+			}
+
+			// 构建购物车项
+			cartItem := map[string]interface{}{
+				"user_id":    currentUser.ID,
+				"product_id": product.ID,
+				"quantity":   1, // 默认数量为 1
+			}
+
+			// 发送加入购物车请求
+			cartItemJSON, err := json.Marshal(cartItem)
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("编码购物车项失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
+				return
+			}
+
+			resp, err := http.Post("http://localhost:8080/cart/items", "application/json", bytes.NewBuffer(cartItemJSON))
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("发送请求失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
+				return
+			}
+			defer resp.Body.Close()
+
+			// 处理响应
+			if resp.StatusCode == http.StatusCreated {
+				dialog.ShowInformation("成功", "商品已加入购物车", fyne.CurrentApp().Driver().AllWindows()[1])
+			} else {
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("读取响应失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
+					return
+				}
+				dialog.ShowError(fmt.Errorf("加入购物车失败: %s", string(body)), fyne.CurrentApp().Driver().AllWindows()[1])
+			}
 		}),
-		widget.NewButton("购买", func() {
+		widget.NewButton("立即购买", func() {
 			fmt.Println("购买:", product.Name)
 		}),
 	)
@@ -356,7 +433,13 @@ func fetchReviewsFromAPI(productID int) ([]Review, error) {
 
 // 发送评论
 func sendReview(productID int, rating, comment string) {
+	if currentUser == nil {
+		fmt.Println("用户未登录")
+		dialog.ShowError(fmt.Errorf("用户未登录\n请先登录"), fyne.CurrentApp().Driver().AllWindows()[1])
+		return
+	}
 	review := Review{
+		UserID:    currentUser.ID,
 		ProductID: productID,
 		Rating:    rating,
 		Comment:   comment,

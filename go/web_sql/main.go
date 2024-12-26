@@ -13,7 +13,7 @@ func main() {
 	go route.APIInit()
 	go control.RepAPIInit()
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
 		fmt.Println("CodE Dream! \nIt's My GO!!!!!")
 	}()
 	ui.Show()

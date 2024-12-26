@@ -24,7 +24,7 @@ func LoginHandler(c *gin.Context) {
 
 	// 查询用户
 	var user rep.User
-	if err := rep.DB.Where("phone = ?", loginRequest.Phone).First(&user).Error; err != nil {
+	if err := rep.DB.Preload("Carts").Preload("Orders").Preload("Coupons").Where("phone = ?", loginRequest.Phone).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Phone number invalid"})
 		return
 	}

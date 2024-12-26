@@ -1,4 +1,5 @@
 #include "redis_consumer.h"
+#include "inventory.h"
 #include <hiredis/hiredis.h>
 #include <iostream>
 
@@ -17,10 +18,8 @@ int main() {
 
     std::cout << "Connected to Redis!Let's Start!" << std::endl;
 
-    // 开始消费消息
+    initializeInventory(context);
     consumeRedisMessages(context);
-
-    // 关闭 Redis 连接
     redisFree(context);
 
     return 0;

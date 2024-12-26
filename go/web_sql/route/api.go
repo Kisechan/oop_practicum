@@ -49,6 +49,6 @@ func SetupRoutes(r *gin.Engine) {
 		orderRoutes.POST("/checkout", control.CheckoutHandler)
 		orderRoutes.POST("/checkout/result", control.CheckoutResultHandler)
 		orderRoutes.GET("/checkout/result", control.GetCheckoutResultHandler)
+		orderRoutes.GET("/:id", control.GetOrdersHandler)
 	}
-
 }
