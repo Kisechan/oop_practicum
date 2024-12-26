@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 	"web_sql/rep"
 
@@ -46,12 +47,21 @@ func GetProductReviewsHandler(c *gin.Context) {
 				"reviews": reviews,
 			})
 			return
+		} else {
+			fmt.Println("Redis 缓存解析失败:", err)
 		}
+	} else {
+		fmt.Println("Redis 缓存未命中:", err)
 	}
 
 	// 查询商品的评论
 	var reviews []rep.Review
-	if err := rep.DB.Preload("Users").Where("product_id = ?", productID).Find(&reviews).Error; err != nil {
+	productIDint, err := strconv.Atoi(productID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+	if err := rep.DB.Preload("User").Preload("Product").Where("product_id = ?", productIDint).Find(&reviews).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reviews"})
 		return
 	}
@@ -60,6 +70,8 @@ func GetProductReviewsHandler(c *gin.Context) {
 	reviewsJSON, err := json.Marshal(reviews)
 	if err == nil {
 		redisClient.Set(ctx, cacheKey, reviewsJSON, time.Hour) // 缓存 1 小时
+	} else {
+		fmt.Println("Redis 缓存写入失败:", err)
 	}
 
 	// 返回评论信息

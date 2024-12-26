@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 	"web_sql/rep"
 
@@ -34,10 +35,10 @@ func AddCartHandler(c *gin.Context) {
 	}
 
 	// 检查库存是否足够
-	if product.Stock < cartItem.Quantity {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
-		return
-	}
+	// if product.Stock < cartItem.Quantity {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
+	// 	return
+	// }
 
 	// 创建购物车项
 	cartItem.AddTime = time.Now()
@@ -89,8 +90,11 @@ func GetCartHandler(c *gin.Context) {
 
 	// 尝试从 Redis 缓存中获取购物车信息
 	cacheKey := fmt.Sprintf("user_cart_%s", userID)
+
 	cachedCartItems, err := redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
+		fmt.Println("从 Redis 缓存中获取到购物车信息") // 打印缓存命中信息
+
 		// 如果缓存中存在购物车信息，直接返回
 		var cartItems []rep.Cart
 		if err := json.Unmarshal([]byte(cachedCartItems), &cartItems); err == nil {
@@ -98,12 +102,21 @@ func GetCartHandler(c *gin.Context) {
 				"cart_items": cartItems,
 			})
 			return
+		} else {
+			fmt.Println("解析 Redis 缓存中的购物车信息失败:", err) // 打印解析失败信息
 		}
+	} else {
+		fmt.Println("未从 Redis 缓存中获取到购物车信息:", err) // 打印缓存未命中信息
 	}
 
 	// 查询用户的购物车项
 	var cartItems []rep.Cart
-	if err := rep.DB.Where("user_id = ?", userID).Find(&cartItems).Error; err != nil {
+	userIDint, err := strconv.Atoi(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	if err := rep.DB.Preload("Product").Where("user_id = ?", userIDint).Find(&cartItems).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart items"})
 		return
 	}
@@ -111,7 +124,14 @@ func GetCartHandler(c *gin.Context) {
 	// 将购物车信息存入 Redis 缓存
 	cartItemsJSON, err := json.Marshal(cartItems)
 	if err == nil {
-		redisClient.Set(ctx, cacheKey, cartItemsJSON, time.Hour) // 缓存 1 小时
+		fmt.Println("成功将购物车信息序列化为 JSON") // 打印序列化成功信息
+		if err := redisClient.Set(ctx, cacheKey, cartItemsJSON, time.Hour).Err(); err == nil {
+			fmt.Println("成功将购物车信息存入 Redis 缓存") // 打印缓存成功信息
+		} else {
+			fmt.Println("将购物车信息存入 Redis 缓存失败:", err) // 打印缓存失败信息
+		}
+	} else {
+		fmt.Println("将购物车信息序列化为 JSON 失败:", err) // 打印序列化失败信息
 	}
 
 	// 返回购物车信息

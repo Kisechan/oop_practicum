@@ -1,6 +1,8 @@
 package rep
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 func GetCartsByUserID(db *gorm.DB, userID int) ([]Cart, error) {
 	var carts []Cart

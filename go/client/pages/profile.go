@@ -15,20 +15,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// User 结构体
-type User struct {
-	ID       int     `json:"id"`
-	Username string  `json:"username"`
-	Password string  `json:"password"`
-	Email    *string `json:"email"`
-	Phone    string  `json:"phone"`
-	Address  *string `json:"address"`
-
-	// Carts   []Cart   `gorm:"foreignKey:UserID"`
-	// Orders  []Order  `gorm:"foreignKey:UserID"`
-	// Reviews []Review `gorm:"foreignKey:UserID"`
-}
-
 // 全局变量：当前用户
 var currentUser *User
 
@@ -135,12 +121,19 @@ func login(phone, password string) (*User, error) {
 	}
 	fmt.Printf("登录响应: %s\n", body)
 	// 解析用户信息
-	var user User
-	if err := json.Unmarshal(body, &user); err != nil {
+	type LoginResponse struct {
+		User User `json:"user"`
+	}
+
+	var (
+		loginResponse LoginResponse
+	)
+
+	if err := json.Unmarshal(body, &loginResponse); err != nil {
 		return nil, fmt.Errorf("解析用户信息失败: %v", err)
 	}
 
-	return &user, nil
+	return &loginResponse.User, nil
 }
 
 // 创建注册页面
@@ -236,7 +229,7 @@ func createUserInfoPage() fyne.CanvasObject {
 	infoBox := container.NewVBox()
 
 	// 添加用户信息
-	addInfoRow(infoBox, "用户名", currentUser.Username, func() {
+	addInfoRow(infoBox, "用户名		", currentUser.Username, func() {
 		// 修改用户名
 		newUsername := widget.NewEntry()
 		dialog.ShowForm("修改用户名", "确认", "取消", []*widget.FormItem{
@@ -249,7 +242,7 @@ func createUserInfoPage() fyne.CanvasObject {
 		}, fyne.CurrentApp().Driver().AllWindows()[0])
 	})
 
-	addInfoRow(infoBox, "电话号码", currentUser.Phone, func() {
+	addInfoRow(infoBox, "电话号码		", currentUser.Phone, func() {
 		// 修改电话号码
 		newPhone := widget.NewEntry()
 		dialog.ShowForm("修改电话号码", "确认", "取消", []*widget.FormItem{
@@ -263,7 +256,7 @@ func createUserInfoPage() fyne.CanvasObject {
 	})
 
 	if currentUser.Email != nil {
-		addInfoRow(infoBox, "邮箱", *currentUser.Email, func() {
+		addInfoRow(infoBox, "邮箱			", *currentUser.Email, func() {
 			// 修改邮箱
 			newEmail := widget.NewEntry()
 			dialog.ShowForm("修改邮箱", "确认", "取消", []*widget.FormItem{
@@ -279,7 +272,7 @@ func createUserInfoPage() fyne.CanvasObject {
 	}
 
 	if currentUser.Address != nil {
-		addInfoRow(infoBox, "地址", *currentUser.Address, func() {
+		addInfoRow(infoBox, "地址			", *currentUser.Address, func() {
 			// 修改地址
 			newAddress := widget.NewEntry()
 			dialog.ShowForm("修改地址", "确认", "取消", []*widget.FormItem{
@@ -296,7 +289,18 @@ func createUserInfoPage() fyne.CanvasObject {
 
 	// 布局
 	return container.NewVBox(
-		widget.NewLabelWithStyle("个人主页", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewRichText(
+			&widget.TextSegment{
+				Text: "主页",
+				Style: widget.RichTextStyle{
+					SizeName:  theme.SizeNameHeadingText,
+					Alignment: fyne.TextAlignCenter,
+					TextStyle: fyne.TextStyle{
+						Bold: true,
+					},
+				},
+			},
+		),
 		infoBox,
 	)
 }
