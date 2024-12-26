@@ -35,17 +35,6 @@ CREATE TABLE `carts`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 11001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for categories
--- ----------------------------
-DROP TABLE IF EXISTS `categories`;
-CREATE TABLE `categories`  (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `parentid` int NULL DEFAULT 0,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2061 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
 -- Table structure for coupons
 -- ----------------------------
 DROP TABLE IF EXISTS `coupons`;
@@ -65,39 +54,6 @@ CREATE TABLE `coupons`  (
   CONSTRAINT `productid_coupons` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `userid_coupons` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 2001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Table structure for delivery_addresses
--- ----------------------------
-DROP TABLE IF EXISTS `delivery_addresses`;
-CREATE TABLE `delivery_addresses`  (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int NOT NULL,
-  `phone` varchar(15) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `name` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  PRIMARY KEY (`id` DESC) USING BTREE,
-  INDEX `userid_delivery_address`(`user_id` ASC) USING BTREE,
-  CONSTRAINT `userid_delivery_address` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 3001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Table structure for order_items
--- ----------------------------
-DROP TABLE IF EXISTS `order_items`;
-CREATE TABLE `order_items`  (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `order_id` int NOT NULL,
-  `product_id` int NOT NULL,
-  `quantity` int NOT NULL,
-  `unit_price` decimal(10, 2) NOT NULL,
-  `total_price` decimal(10, 2) NOT NULL,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `orderid_order_item`(`order_id` ASC) USING BTREE,
-  INDEX `productid_order_item`(`product_id` ASC) USING BTREE,
-  CONSTRAINT `orderid_order_item` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `productid_order_item` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 6001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for orders
@@ -151,25 +107,6 @@ CREATE TABLE `reviews`  (
   CONSTRAINT `productid_review` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `userid_review` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 11199 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Table structure for shippings
--- ----------------------------
-DROP TABLE IF EXISTS `shippings`;
-CREATE TABLE `shippings`  (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `order_item_id` int NOT NULL,
-  `tracking_number` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `carrier` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `status` enum('pending_shipment','pending_collect','delivering','pending_pickup','pickedup','error') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending_shipment',
-  `estimated_delivered_time` datetime NULL DEFAULT NULL,
-  `create_time` datetime NULL DEFAULT NULL,
-  `shipped_time` datetime NULL DEFAULT NULL,
-  `completed_time` datetime NULL DEFAULT NULL,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `order_itemid_products`(`order_item_id` ASC) USING BTREE,
-  CONSTRAINT `order_itemid_products` FOREIGN KEY (`order_item_id`) REFERENCES `order_items` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 4001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for users
