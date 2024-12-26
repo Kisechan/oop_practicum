@@ -4,7 +4,7 @@
 #include <iostream>
 
 int main() {
-    // Á¬½Ó Redis
+    // ï¿½ï¿½ï¿½ï¿½ Redis
     redisContext* context = redisConnect("127.0.0.1", 6379);
     if (context == NULL || context->err) {
         if (context) {
