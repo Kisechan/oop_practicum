@@ -16,7 +16,7 @@ void consumeRedisMessages(redisContext* context) {
             }
             // ¥¶¿Ì√Î…±∂©µ•
             std::cout << "\nStart Resolving Seckill Requests\n" << std::endl;
-            createOrder(message);
+            createOrder(context, message);
         }
         freeReplyObject(reply);
     }

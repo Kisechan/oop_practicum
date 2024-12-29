@@ -1,10 +1,10 @@
 #include "redis_consumer.h"
-#include "inventory.h"
+#include "order_processor.h"
 #include <hiredis/hiredis.h>
 #include <iostream>
 
 int main() {
-    // ���� Redis
+    // 初始化 Redis
     redisContext* context = redisConnect("127.0.0.1", 6379);
     if (context == NULL || context->err) {
         if (context) {
