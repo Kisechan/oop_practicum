@@ -208,7 +208,7 @@ func showProductDetailWindow(product Product) {
 
 	// 设置窗口内容
 	detailWindow.SetContent(detailPage)
-	detailWindow.Resize(fyne.NewSize(360, 780)) // 设置窗口大小
+	detailWindow.Resize(fyne.NewSize(680, 400)) // 设置窗口大小
 	detailWindow.Show()
 }
 

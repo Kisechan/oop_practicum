@@ -54,7 +54,7 @@ func createLoginPage() fyne.CanvasObject {
 
 		// 登录成功，更新当前用户
 		currentUser = user
-		fmt.Println("User:", *user, "Logined Successfully")
+		fmt.Println("User:", *user, "Login Successfully")
 		// 更新个人主页内容
 		tabs := fyne.CurrentApp().Driver().AllWindows()[0].Content().(*container.AppTabs)
 		tabs.Items[3].Content = createUserInfoPage()
@@ -120,15 +120,13 @@ func login(phone, password string) (*User, error) {
 		return nil, fmt.Errorf("读取响应体失败: %v", err)
 	}
 	fmt.Printf("登录响应: %s\n", body)
+
 	// 解析用户信息
 	type LoginResponse struct {
 		User User `json:"user"`
 	}
 
-	var (
-		loginResponse LoginResponse
-	)
-
+	var loginResponse LoginResponse
 	if err := json.Unmarshal(body, &loginResponse); err != nil {
 		return nil, fmt.Errorf("解析用户信息失败: %v", err)
 	}
@@ -175,7 +173,6 @@ func createRegisterPage() fyne.CanvasObject {
 		}
 
 		// 注册成功，关闭注册窗口
-
 		dialog.ShowInformation("注册成功", "请返回登录页面进行登录", fyne.CurrentApp().Driver().AllWindows()[1])
 		time.Sleep(5 * time.Second)
 		fyne.CurrentApp().Driver().AllWindows()[1].Close()
@@ -223,9 +220,8 @@ func register(username, password, phone, email, address string) error {
 	return nil
 }
 
-// 创建用户信息页面
-func createUserInfoPage() fyne.CanvasObject {
-	// 用户信息
+// 创建用户信息展示区域
+func createInfoBox() *fyne.Container {
 	infoBox := container.NewVBox()
 
 	// 添加用户信息
@@ -237,7 +233,14 @@ func createUserInfoPage() fyne.CanvasObject {
 		}, func(ok bool) {
 			if ok {
 				currentUser.Username = newUsername.Text
-				infoBox.Refresh()
+				// 更新服务器上的用户信息
+				if err := updateUserInfo(currentUser); err != nil {
+					dialog.ShowError(err, fyne.CurrentApp().Driver().AllWindows()[0])
+				} else {
+					dialog.ShowInformation("更新成功", "用户信息已更新", fyne.CurrentApp().Driver().AllWindows()[0])
+					// 重新生成 infoBox
+					infoBox.Refresh()
+				}
 			}
 		}, fyne.CurrentApp().Driver().AllWindows()[0])
 	})
@@ -250,7 +253,14 @@ func createUserInfoPage() fyne.CanvasObject {
 		}, func(ok bool) {
 			if ok {
 				currentUser.Phone = newPhone.Text
-				infoBox.Refresh()
+				// 更新服务器上的用户信息
+				if err := updateUserInfo(currentUser); err != nil {
+					dialog.ShowError(err, fyne.CurrentApp().Driver().AllWindows()[0])
+				} else {
+					dialog.ShowInformation("更新成功", "用户信息已更新", fyne.CurrentApp().Driver().AllWindows()[0])
+					// 重新生成 infoBox
+					infoBox.Refresh()
+				}
 			}
 		}, fyne.CurrentApp().Driver().AllWindows()[0])
 	})
@@ -265,7 +275,14 @@ func createUserInfoPage() fyne.CanvasObject {
 				if ok {
 					newEmailValue := newEmail.Text
 					currentUser.Email = &newEmailValue
-					infoBox.Refresh()
+					// 更新服务器上的用户信息
+					if err := updateUserInfo(currentUser); err != nil {
+						dialog.ShowError(err, fyne.CurrentApp().Driver().AllWindows()[0])
+					} else {
+						dialog.ShowInformation("更新成功", "用户信息已更新", fyne.CurrentApp().Driver().AllWindows()[0])
+						// 重新生成 infoBox
+						infoBox.Refresh()
+					}
 				}
 			}, fyne.CurrentApp().Driver().AllWindows()[0])
 		})
@@ -281,11 +298,91 @@ func createUserInfoPage() fyne.CanvasObject {
 				if ok {
 					newAddressValue := newAddress.Text
 					currentUser.Address = &newAddressValue
-					infoBox.Refresh()
+					// 更新服务器上的用户信息
+					if err := updateUserInfo(currentUser); err != nil {
+						dialog.ShowError(err, fyne.CurrentApp().Driver().AllWindows()[0])
+					} else {
+						dialog.ShowInformation("更新成功", "用户信息已更新", fyne.CurrentApp().Driver().AllWindows()[0])
+						// 重新生成 infoBox
+						infoBox.Refresh()
+					}
 				}
 			}, fyne.CurrentApp().Driver().AllWindows()[0])
 		})
 	}
+
+	// 修改密码按钮
+	changePasswordButton := widget.NewButton("修改密码", func() {
+		// 弹窗表单
+		oldPasswordEntry := widget.NewPasswordEntry()
+		oldPasswordEntry.SetPlaceHolder("请输入旧密码")
+		oldPasswordEntry.MinSize()                                                    // 设置最小宽度
+		oldPasswordEntry.Resize(fyne.NewSize(300, oldPasswordEntry.MinSize().Height)) // 设置宽度为 300
+
+		newPasswordEntry := widget.NewPasswordEntry()
+		newPasswordEntry.SetPlaceHolder("请输入新密码")
+		newPasswordEntry.Resize(fyne.NewSize(300, newPasswordEntry.MinSize().Height)) // 设置宽度为 300
+
+		confirmPasswordEntry := widget.NewPasswordEntry()
+		confirmPasswordEntry.SetPlaceHolder("请确认新密码")
+		confirmPasswordEntry.Resize(fyne.NewSize(300, confirmPasswordEntry.MinSize().Height)) // 设置宽度为 300
+
+		dialog.ShowForm("修改密码", "确认", "取消", []*widget.FormItem{
+			widget.NewFormItem("", oldPasswordEntry),
+			widget.NewFormItem("", newPasswordEntry),
+			widget.NewFormItem("", confirmPasswordEntry),
+		}, func(ok bool) {
+			if ok {
+				// 检查新密码和确认密码是否一致
+				if newPasswordEntry.Text != confirmPasswordEntry.Text {
+					dialog.ShowError(fmt.Errorf("新密码与确认密码不一致"), fyne.CurrentApp().Driver().AllWindows()[0])
+					return
+				}
+
+				// 发送修改密码请求
+				err := changePassword(currentUser.ID, oldPasswordEntry.Text, newPasswordEntry.Text)
+				if err != nil {
+					dialog.ShowError(err, fyne.CurrentApp().Driver().AllWindows()[0])
+				} else {
+					dialog.ShowInformation("修改成功", "密码已更新", fyne.CurrentApp().Driver().AllWindows()[0])
+				}
+			}
+		}, fyne.CurrentApp().Driver().AllWindows()[0])
+	})
+	infoBox.Add(container.NewGridWithColumns(
+		2,
+		widget.NewLabel("修改密码"),
+		changePasswordButton,
+	))
+
+	return infoBox
+}
+
+// 创建用户信息页面
+func createUserInfoPage() fyne.CanvasObject {
+	// 用户信息
+	infoBox := createInfoBox()
+
+	// 刷新按钮
+	refreshButton := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), func() {
+		// 重新获取用户信息
+		// user, err := fetchUserInfo(currentUser.ID)
+		// if err != nil {
+		// 	dialog.ShowError(err, fyne.CurrentApp().Driver().AllWindows()[0])
+		// 	return
+		// }
+
+		// 更新当前用户信息
+		// currentUser = user
+
+		// 重新生成 infoBox
+		infoBox = createInfoBox()
+
+		// 刷新页面
+		tabs := fyne.CurrentApp().Driver().AllWindows()[0].Content().(*container.AppTabs)
+		tabs.Items[3].Content = createUserInfoPage()
+		tabs.Refresh()
+	})
 
 	// 布局
 	return container.NewVBox(
@@ -301,15 +398,130 @@ func createUserInfoPage() fyne.CanvasObject {
 				},
 			},
 		),
+		refreshButton,
 		infoBox,
 	)
 }
 
 // 添加信息行
 func addInfoRow(box *fyne.Container, labelText, value string, editFunc func()) {
-	row := container.NewHBox(
-		widget.NewLabel(labelText+": "+value),
-		widget.NewButton("修改", editFunc),
+	row := container.NewGridWithColumns(
+		2,
+		widget.NewLabel(labelText+value),
+		widget.NewButton("修改", func() {
+			editFunc()
+		}),
 	)
 	box.Add(row)
 }
+
+// 更新用户信息
+func updateUserInfo(user *User) error {
+	// 创建更新请求体
+	updateRequest := struct {
+		ID       int     `json:"id"`
+		Username string  `json:"username"`
+		Email    *string `json:"email"`
+		Phone    string  `json:"phone"`
+	}{
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+		Phone:    user.Phone,
+	}
+
+	updateJSON, err := json.Marshal(updateRequest)
+	if err != nil {
+		return fmt.Errorf("编码更新请求失败: %v", err)
+	}
+
+	// 发送 PUT 请求
+	req, err := http.NewRequest(http.MethodPut, "http://localhost:8080/users/profile", bytes.NewBuffer(updateJSON))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态码
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("更新用户信息失败，状态码: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// 修改密码请求
+func changePassword(userID int, oldPassword, newPassword string) error {
+	// 创建修改密码请求体
+	changePasswordRequest := struct {
+		UserID      int    `json:"user_id"`
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}{
+		UserID:      userID,
+		OldPassword: oldPassword,
+		NewPassword: newPassword,
+	}
+
+	changePasswordJSON, err := json.Marshal(changePasswordRequest)
+	if err != nil {
+		return fmt.Errorf("编码修改密码请求失败: %v", err)
+	}
+
+	// 发送 PUT 请求
+	req, err := http.NewRequest(http.MethodPut, "http://localhost:8080/users/change-password", bytes.NewBuffer(changePasswordJSON))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态码
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("修改密码失败，状态码: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// 获取用户信息
+// func fetchUserInfo(userID int) (*User, error) {
+// 	// 发送 GET 请求
+// 	resp, err := http.Get(fmt.Sprintf("http://localhost:8080/users/profile/%d", userID))
+// 	if err != nil {
+// 		return nil, fmt.Errorf("发送请求失败: %v", err)
+// 	}
+// 	defer resp.Body.Close()
+
+// 	// 检查响应状态码
+// 	if resp.StatusCode != http.StatusOK {
+// 		return nil, fmt.Errorf("获取用户信息失败，状态码: %d", resp.StatusCode)
+// 	}
+
+// 	// 解析响应体
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("读取响应体失败: %v", err)
+// 	}
+
+// 	// 解析用户信息
+// 	var user User
+// 	if err := json.Unmarshal(body, &user); err != nil {
+// 		return nil, fmt.Errorf("解析用户信息失败: %v", err)
+// 	}
+
+// 	return &user, nil
+// }

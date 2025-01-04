@@ -129,3 +129,46 @@ func UpdateUserInfoHandler(c *gin.Context) {
 		"user":    user,
 	})
 }
+
+func ChangePasswordHandler(c *gin.Context) {
+	var changePasswordRequest struct {
+		UserID      int    `json:"user_id"`
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.ShouldBindJSON(&changePasswordRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 查询用户
+	var user rep.User
+	if err := rep.DB.First(&user, changePasswordRequest.UserID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// 验证旧密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(changePasswordRequest.OldPassword)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid old password"})
+		return
+	}
+
+	// 对新密码进行哈希处理
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(changePasswordRequest.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash new password"})
+		return
+	}
+	user.Password = string(hashedPassword)
+
+	// 更新用户密码
+	if err := rep.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password updated successfully",
+	})
+}
