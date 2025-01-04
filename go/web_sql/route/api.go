@@ -21,6 +21,7 @@ func SetupRoutes(r *gin.Engine) {
 		userRoutes.POST("/login", control.LoginHandler)
 		userRoutes.GET("/profile/:id", control.GetUserInfoHandler)
 		userRoutes.PUT("/profile", control.UpdateUserInfoHandler)
+		userRoutes.PUT("/change-password", control.ChangePasswordHandler)
 	}
 	productRoutes := r.Group("/products")
 	{
