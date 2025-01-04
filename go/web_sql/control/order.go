@@ -1,7 +1,6 @@
 package control
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,35 +27,51 @@ type OrderRequest struct {
 // 	return fmt.Sprintf("ORD%d%04d", timestamp, random)
 // }
 
+type CheckoutRequest struct {
+	UserID      int     `json:"user_id"`
+	ProductID   int     `json:"product_id"`
+	Quantity    int     `json:"quantity"`
+	CouponCode  string  `json:"coupon_code"`
+	Discount    float64 `json:"discount"`
+	Payable     float64 `json:"payable"`
+	OrderNumber string  `json:"order_number"`
+	Total       float64 `json:"total"`
+}
+
 func CheckoutHandler(c *gin.Context) {
-	// 解析请求体
-	var req OrderRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+	var request CheckoutRequest
+
+	// 解析客户端发送的JSON请求
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	fmt.Println(req)
-	// ctx := context.Background()
-	// _, err := redisClient.Ping(ctx).Result()
-	// if err != nil {
-	// 	log.Fatalf("Failed to connect to Redis: %v", err)
-	// }
-	// 将秒杀请求发送到 Redis 队列
-	ctx := context.Background()
-	message, err := json.Marshal(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request"})
-		return
+
+	// 构造结算请求
+	checkoutRequest := map[string]interface{}{
+		"order_number": request.OrderNumber,
+		"user_id":      request.UserID,
+		"product_id":   request.ProductID,
+		"quantity":     request.Quantity,
+		"coupon_code":  request.CouponCode,
+		"discount":     float64(request.Discount), // 确保是浮点数
+		"payable":      float64(request.Payable),  // 确保是浮点数
+		"total":        float64(request.Total),    // 确保是浮点数
 	}
-	err = redisClient.LPush(ctx, "seckill_queue", message).Err()
+
+	// 将结算请求推送到Redis消息队列
+	err := PushToRedisQueue("checkout_queue", checkoutRequest)
 	if err != nil {
-		fmt.Printf("Failed to send to Redis: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to push to Redis"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to push to Redis queue"})
 		return
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, gin.H{"message": "Seckill order submitted"})
+	fmt.Println("成功将JSON: ", checkoutRequest, " 推送到Redis队列")
+	c.JSON(http.StatusOK, gin.H{
+		"order_number": request.OrderNumber,
+		"message":      "Checkout request received",
+	})
 }
 
 // 秒杀结果的缓存
@@ -87,23 +102,21 @@ func CheckoutResultHandler(c *gin.Context) {
 
 // 查询秒杀结果的控制器
 func GetCheckoutResultHandler(c *gin.Context) {
-	orderID := c.Query("order_id")
-	if orderID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing order_id"})
+	// 获取订单号
+	orderNumber := c.Param("order_number")
+
+	// 从Redis中获取订单结果
+	orderResult, err := GetFromRedis("order_result:" + orderNumber)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
 	}
 
-	// 从缓存中获取秒杀结果
-	seckillResults.RLock()
-	status, exists := seckillResults.results[orderID]
-	seckillResults.RUnlock()
-
-	if !exists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Seckill result not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"order_id": orderID, "status": status})
+	// 返回订单结果
+	c.JSON(http.StatusOK, gin.H{
+		"order_number": orderNumber,
+		"result":       orderResult,
+	})
 }
 
 func GetOrdersHandler(c *gin.Context) {
