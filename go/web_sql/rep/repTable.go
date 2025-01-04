@@ -36,6 +36,9 @@ type Order struct {
 	UpdateTime  time.Time `gorm:"not null;autoUpdateTime" json:"update_time"`
 	ProductID   int       `gorm:"not null" json:"product_id"`
 	Quantity    int       `gorm:"not null" json:"quantity"`
+	Discount    float64   `gorm:"type:decimal(10,2);not null" json:"discount"`
+	Payable     float64   `gorm:"type:decimal(10,2);not null" json:"payable"`
+	CouponCode  string    `gorm:"type:varchar(32);not null" json:"coupon_code"`
 
 	User    User    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Product Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
