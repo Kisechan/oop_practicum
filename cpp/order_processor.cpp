@@ -1,74 +1,91 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include "order_processor.h"
-#include <boost/json.hpp>
-#include <hiredis/hiredis.h>
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
-#include <boost/asio/connect.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <iostream>
-#include <string>
 
-namespace beast = boost::beast;         // 简化命名空间
-namespace http = beast::http;           // 简化命名空间
-namespace net = boost::asio;            // 简化命名空间
-using tcp = net::ip::tcp;               // 简化命名空间
-namespace json = boost::json;
+// 全局变量
+redisContext* context;
+std::mutex redisMutex;
+std::mutex httpMutex;
+
+// 获取数据
 std::vector<std::pair<int, int>> fetchInventoryFromDatabase() {
     std::vector<std::pair<int, int>> inventoryData;
 
     try {
-        // 创建 I/O 上下文
-        net::io_context ioc;
+        asio::io_context ioContext;
+        tcp::resolver resolver(ioContext);
+        auto const results = resolver.resolve("localhost", "8081");
 
-        // 解析域名
-        tcp::resolver resolver(ioc);
-        auto const results = resolver.resolve("localhost", "8081"); // API 地址
+        tcp::socket socket(ioContext);
+        asio::connect(socket, results.begin(), results.end());
 
-        // 创建连接
-        tcp::socket socket(ioc);
-        net::connect(socket, results.begin(), results.end());
-
-        // 构建 HTTP GET 请求
-        http::request<http::string_body> req{ http::verb::get, "/api/stock", 11 };
+        // 构造 HTTP GET 请求
+        http::request<http::string_body> req{ http::verb::get, "/products/stock", 11 };
         req.set(http::field::host, "localhost");
         req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
-        // 发送请求
         http::write(socket, req);
 
-        // 读取响应
         beast::flat_buffer buffer;
         http::response<http::dynamic_body> res;
         http::read(socket, buffer, res);
 
-        // 解析 JSON 响应
         std::string responseBody = beast::buffers_to_string(res.body().data());
         json::value jsonResponse = json::parse(responseBody);
 
-        // 提取库存数据
-        for (const auto& item : jsonResponse.as_array()) {
+        // 检查响应状态
+        if (jsonResponse.at("status").as_string() != "success") {
+            std::cerr << "API returned an error status" << std::endl;
+            return inventoryData;
+        }
+
+        // 解析库存数据
+        json::array inventoryArray = jsonResponse.at("data").as_array();
+        for (const auto& item : inventoryArray) {
             int productId = item.at("id").as_int64();
             int stock = item.at("stock").as_int64();
+            std::cout << "productId=" << productId << ", stock=" << stock << std::endl;
             inventoryData.push_back({ productId, stock });
         }
 
-        // 关闭连接
         socket.shutdown(tcp::socket::shutdown_both);
     }
     catch (const std::exception& e) {
-        std::cerr << "Error fetching inventory from API: " << e.what() << std::endl;
+        std::cerr << "Error fetching inventory: " << e.what() << std::endl;
     }
 
     return inventoryData;
 }
 
-// 检查库存是否充足
-bool checkInventory(redisContext* context, int productId, int quantity) {
+// 初始化库存到 Redis
+void initializeInventory(redisContext* context) {
+    std::vector<std::pair<int, int>> inventoryData = fetchInventoryFromDatabase();
+    
+    if (inventoryData.empty()) {
+        std::cout << "Inventory Data is Empty!" << std::endl;
+        return;
+    }
+    
+    std::lock_guard<std::mutex> lock(redisMutex);
+    for (const auto& item : inventoryData) {
+        int productId = item.first;
+        int stock = item.second;
+        std::string key = "inventory:" + std::to_string(productId);
+
+        redisReply* reply = (redisReply*)redisCommand(context, "SET %s %d", key.c_str(), stock);
+        if (reply == nullptr || reply->type == REDIS_REPLY_ERROR) {
+            std::cerr << "Failed to initialize inventory for product " << productId << std::endl;
+        }
+        freeReplyObject(reply);
+    }
+
+    std::cout << "Inventory initialized successfully!" << std::endl;
+}
+
+// 原子化减少库存
+bool decreaseInventory(redisContext* context, int productId, int quantity) {
+    std::lock_guard<std::mutex> lock(redisMutex);
     std::string key = "inventory:" + std::to_string(productId);
 
-    // 使用 DECRBY 原子性地减少库存
     redisReply* reply = (redisReply*)redisCommand(context, "DECRBY %s %d", key.c_str(), quantity);
     if (reply == nullptr || reply->type == REDIS_REPLY_ERROR) {
         std::cerr << "Redis error: " << (reply ? reply->str : "Unknown error") << std::endl;
@@ -76,16 +93,15 @@ bool checkInventory(redisContext* context, int productId, int quantity) {
         return false;
     }
 
-    // 检查库存是否充足
     int remainingStock = reply->integer;
     freeReplyObject(reply);
 
     if (remainingStock >= 0) {
-        std::cout << "Inventory check passed for product " << productId << ". Remaining stock: " << remainingStock << std::endl;
+        std::cout << "Inventory decreased for product " << productId << ". Remaining stock: " << remainingStock << std::endl;
         return true;
     }
     else {
-        // 库存不足，恢复库存
+        // 回滚库存
         redisReply* restoreReply = (redisReply*)redisCommand(context, "INCRBY %s %d", key.c_str(), quantity);
         if (restoreReply == nullptr || restoreReply->type == REDIS_REPLY_ERROR) {
             std::cerr << "Failed to restore inventory for product " << productId << std::endl;
@@ -96,156 +112,217 @@ bool checkInventory(redisContext* context, int productId, int quantity) {
     }
 }
 
-// 初始化 Redis 库存
-void initializeInventory(redisContext* context) {
-    // 从数据库或 API 中获取商品库存数据
-    std::vector<std::pair<int, int>> inventoryData = fetchInventoryFromDatabase();
+// 处理优惠券
+bool useCoupon(const std::string& couponCode, int userId) {
+    try {
+        asio::io_context ioContext;
+        tcp::resolver resolver(ioContext);
+        auto const results = resolver.resolve("localhost", "8080");
 
-    // 将库存数据写入 Redis
-    for (const auto& item : inventoryData) {
-        int productId = item.first;
-        int stock = item.second;
-        std::string key = "inventory:" + std::to_string(productId);
+        tcp::socket socket(ioContext);
+        asio::connect(socket, results.begin(), results.end());
 
-        // 设置库存值
-        redisReply* reply = (redisReply*)redisCommand(context, "SET %s %d", key.c_str(), stock);
-        if (reply == nullptr || reply->type == REDIS_REPLY_ERROR) {
-            std::cerr << "Failed to initialize inventory for product " << productId << ": " << (reply ? reply->str : "Unknown error") << std::endl;
+        json::value couponRequest = {
+            {"user_id", userId},
+            {"coupon_code", couponCode}
+        };
+
+        http::request<http::string_body> req{ http::verb::post, "/coupons/use", 11 };
+        req.set(http::field::host, "localhost");
+        req.set(http::field::content_type, "application/json");
+        req.body() = json::serialize(couponRequest);
+        req.prepare_payload();
+
+        http::write(socket, req);
+
+        beast::flat_buffer buffer;
+        http::response<http::dynamic_body> res;
+        http::read(socket, buffer, res);
+
+        std::string responseBody = beast::buffers_to_string(res.body().data());
+        json::value jsonResponse = json::parse(responseBody);
+
+        socket.shutdown(tcp::socket::shutdown_both);
+
+        return jsonResponse.at("status").as_string() == "success";
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error using coupon: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+// 异步持久化订单信息
+void persistOrderAsync(const json::value& order) {
+    std::thread([order]() {
+        try {
+            asio::io_context ioContext;
+            tcp::resolver resolver(ioContext);
+            auto const results = resolver.resolve("localhost", "8081");
+
+            tcp::socket socket(ioContext);
+            asio::connect(socket, results.begin(), results.end());
+
+            http::request<http::string_body> req{ http::verb::post, "/orders/create", 11 };
+            req.set(http::field::host, "localhost");
+            req.set(http::field::content_type, "application/json");
+            req.body() = json::serialize(order);
+            req.prepare_payload();
+
+            http::write(socket, req);
+
+            beast::flat_buffer buffer;
+            http::response<http::dynamic_body> res;
+            http::read(socket, buffer, res);
+
+            socket.shutdown(tcp::socket::shutdown_both);
         }
-        freeReplyObject(reply);
-    }
-
-    std::cout << "Inventory initialized successfully!" << std::endl;
+        catch (const std::exception& e) {
+            std::cerr << "Error persisting order: " << e.what() << std::endl;
+        }
+        }).detach();
 }
 
-void sendSeckillResult(const std::string& orderId, bool success, const std::string& message) {
+// 异步更新库存信息
+void updateStockAsync(int productId, int quantity) {
+    std::thread([productId, quantity]() {
+        try {
+            asio::io_context ioContext;
+            tcp::resolver resolver(ioContext);
+            auto const results = resolver.resolve("localhost", "8081");
+
+            tcp::socket socket(ioContext);
+            asio::connect(socket, results.begin(), results.end());
+
+            json::value stockRequest = {
+                {"product_id", productId},
+                {"quantity", -quantity}
+            };
+
+            http::request<http::string_body> req{ http::verb::post, "/api/stock/update", 11 };
+            req.set(http::field::host, "localhost");
+            req.set(http::field::content_type, "application/json");
+            req.body() = json::serialize(stockRequest);
+            req.prepare_payload();
+
+            http::write(socket, req);
+
+            beast::flat_buffer buffer;
+            http::response<http::dynamic_body> res;
+            http::read(socket, buffer, res);
+
+            socket.shutdown(tcp::socket::shutdown_both);
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Error updating stock: " << e.what() << std::endl;
+        }
+        }).detach();
+}
+
+void processCheckoutRequest(const std::string& requestJson) {
+    std::cout << "Starting Process Checkout Requests" << std::endl;
+
     try {
-        std::cout << "\nStart Sending Seckill Results\n" << std::endl;
-        // 创建 I/O 上下文
-        net::io_context ioc;
+        // 解析 JSON 请求
+        json::value request = json::parse(requestJson);
+        std::string orderNumber = request.at("order_number").as_string().c_str();
+        int userId = request.at("user_id").as_int64();
+        int productId = request.at("product_id").as_int64();
+        int quantity = request.at("quantity").as_int64();
+        std::string couponCode = request.at("coupon_code").as_string().c_str();
 
-        // 解析域名
-        tcp::resolver resolver(ioc);
-        auto const results = resolver.resolve("localhost", "8080"); // Go 端的地址
+        // 处理 discount 字段
+        double discount;
+        if (request.at("discount").is_double()) {
+            discount = request.at("discount").as_double();
+        }
+        else if (request.at("discount").is_int64()) {
+            discount = static_cast<double>(request.at("discount").as_int64());
+        }
+        else {
+            throw std::runtime_error("Invalid type for discount");
+        }
 
-        // 创建连接
-        tcp::socket socket(ioc);
-        net::connect(socket, results.begin(), results.end());
+        // 处理 payable 字段
+        double payable;
+        if (request.at("payable").is_double()) {
+            payable = request.at("payable").as_double();
+        }
+        else if (request.at("payable").is_int64()) {
+            payable = static_cast<double>(request.at("payable").as_int64());
+        }
+        else {
+            throw std::runtime_error("Invalid type for payable");
+        }
 
-        // 构建 HTTP POST 请求
-        http::request<http::string_body> req{ http::verb::post, "/orders/checkout/result", 11 };
-        req.set(http::field::host, "localhost");
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-        req.set(http::field::content_type, "application/json");
-        req.body() = "{\"order_id\": \"" + orderId + "\", \"status\": \"" + (success ? "success" : "failed") + "\", \"message\": \"" + message + "\"}";
-        req.prepare_payload();
+        // 处理 total 字段
+        double total;
+        if (request.at("total").is_double()) {
+            total = request.at("total").as_double();
+        }
+        else if (request.at("total").is_int64()) {
+            total = static_cast<double>(request.at("total").as_int64());
+        }
+        else {
+            throw std::runtime_error("Invalid type for total");
+        }
 
-        // 发送请求
-        http::write(socket, req);
+        std::cout << "Starting Checking Inventory" << std::endl;
 
-        // 读取响应
-        beast::flat_buffer buffer;
-        http::response<http::dynamic_body> res;
-        http::read(socket, buffer, res);
+        // 原子化减少库存
+        if (!decreaseInventory(context, productId, quantity)) {
+            json::value result = {
+                {"order_number", orderNumber},
+                {"status", "failed"},
+                {"message", "Insufficient inventory"}
+            };
+            redisCommand(context, "SET order_result:%s %s", orderNumber.c_str(), json::serialize(result).c_str());
+            return;
+        }
+        std::cout << "Start Checking Coupons" << std::endl;
+        // 处理优惠券
+        //if (!useCoupon(couponCode, userId)) {
+        //    // 回滚库存
+        //    redisCommand(context, "INCRBY inventory:%d %d", productId, quantity);
 
-        // 输出响应
-        std::cout << "Sending Results Response: " << res << std::endl;
+        //    json::value result = {
+        //        {"order_number", orderNumber},
+        //        {"status", "failed"},
+        //        {"message", "Invalid coupon"}
+        //    };
+        //    redisCommand(context, "SET order_result:%s %s", orderNumber.c_str(), json::serialize(result).c_str());
+        //    return;
+        //}
 
-        // 关闭连接
-        socket.shutdown(tcp::socket::shutdown_both);
+        // 异步持久化订单信息
+        std::cout << "Start Persisting Orders Asyncly" << std::endl;
+
+        json::value order = {
+            {"order_number", orderNumber},
+            {"user_id", userId},
+            {"product_id", productId},
+            {"quantity", quantity},
+            {"discount", discount},
+            {"payable", payable},
+            {"total", total},
+            {"status", "completed"}
+        };
+        persistOrderAsync(order);
+
+        // 异步更新库存信息
+        std::cout << "Start Updating Stock Asyncly" << std::endl;
+
+        updateStockAsync(productId, quantity);
+
+        // 推送成功结果到 Redis
+        json::value result = {
+            {"order_number", orderNumber},
+            {"status", "success"},
+            {"message", "Order completed"}
+        };
+        redisCommand(context, "SET order_result:%s %s", orderNumber.c_str(), json::serialize(result).c_str());
     }
-    catch (std::exception const& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+    catch (const std::exception& e) {
+        std::cerr << "Error processing checkout request: " << e.what() << std::endl;
     }
-}
-
-void createOrder(redisContext* context, const std::string& orderJson) {
-    // 解析 JSON 消息
-    boost::json::value json = boost::json::parse(orderJson);
-    std::string orderId = json.at("order_id").as_string().c_str();
-    int userId = json.at("user_id").as_int64();
-    int productId = json.at("product_id").as_int64();
-    int quantity = json.at("quantity").as_int64();
-    double total = json.at("total").as_double();
-
-    std::cout << "Processing seckill order: " << orderId << std::endl;
-
-    // 检查库存
-    if (!checkInventory(context, productId, quantity)) {
-        std::cerr << "Insufficient inventory for product " << productId << std::endl;
-        sendSeckillResult(orderId, false, "Insufficient inventory");
-        return;
-    }
-    std::cout << "\nStart Making Order Requests\n" << std::endl;
-    // 构建订单创建请求
-    try {
-        // 创建 I/O 上下文
-        net::io_context ioc;
-
-        // 解析域名
-        tcp::resolver resolver(ioc);
-        auto const results = resolver.resolve("localhost", "8081"); // 持久层的地址
-
-        // 创建连接
-        tcp::socket socket(ioc);
-        net::connect(socket, results.begin(), results.end());
-
-        // 构建 HTTP POST 请求
-        http::request<http::string_body> req{ http::verb::post, "/api/orders/create", 11 };
-        req.set(http::field::host, "localhost");
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-        req.set(http::field::content_type, "application/json");
-        req.body() = "{\"id\": \"" + orderId + "\", \"user_id\": " + std::to_string(userId) + ", \"product_id\": " + std::to_string(productId) + ", \"quantity\": " + std::to_string(quantity) + ", \"total\": " + std::to_string(total) + ", \"status\": \"pending\"}";
-        req.prepare_payload();
-
-        // 发送请求
-        http::write(socket, req);
-
-        // 读取响应
-        beast::flat_buffer buffer;
-        http::response<http::dynamic_body> res;
-        http::read(socket, buffer, res);
-
-        // 输出响应
-        std::cout << "Make Order Response: " << res << std::endl;
-
-        // 关闭连接
-        socket.shutdown(tcp::socket::shutdown_both);
-
-        // 发送秒杀成功结果
-        sendSeckillResult(orderId, true, "Order created successfully");
-    }
-    catch (std::exception const& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        sendSeckillResult(orderId, false, "Failed to create order");
-    }
-}
-
-void asyncUpdateStock(const std::string& productId, int quantity) {
-    boost::asio::io_context io_context;
-    boost::asio::ip::tcp::resolver resolver(io_context);
-    boost::asio::ip::tcp::socket socket(io_context);
-
-    // 解析主机和端口
-    auto const results = resolver.resolve("your-api-server.com", "80");
-
-    // 连接服务器
-    boost::asio::connect(socket, results.begin(), results.end());
-
-    // 构造 HTTP 请求
-    http::request<http::string_body> req{ http::verb::post, "/update-stock", 11 };
-    req.set(http::field::host, "your-api-server.com");
-    req.set(http::field::content_type, "application/json");
-    req.body() = R"({"product_id":")" + productId + R"(","quantity":)" + std::to_string(quantity) + "}";
-    req.prepare_payload();
-
-    // 发送请求
-    http::write(socket, req);
-
-    // 读取响应
-    boost::beast::flat_buffer buffer;
-    http::response<http::string_body> res;
-    http::read(socket, buffer, res);
-
-    std::cout << "Update stock response: " << res.body() << std::endl;
 }

@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -24,9 +25,32 @@ func RedisInit() {
 	}
 
 	// 创建队列
-	err = redisClient.LPush(ctx, "seckill_queue", "").Err()
+	err = redisClient.LPush(ctx, "checkout_queue", "").Err()
 	if err != nil {
 		log.Fatalf("Failed to create Redis queue: %v", err)
 	}
 	fmt.Println("Connected to Redis and Create Redis Queue Successfully!")
+}
+
+// 将结算请求推送到Redis消息队列
+func PushToRedisQueue(queueName string, data map[string]interface{}) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return redisClient.LPush(context.Background(), queueName, jsonData).Err()
+}
+
+// 从Redis中获取订单结果
+func GetFromRedis(key string) (map[string]interface{}, error) {
+	val, err := redisClient.Get(context.Background(), key).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(val), &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

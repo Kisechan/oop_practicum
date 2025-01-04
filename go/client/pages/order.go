@@ -85,7 +85,7 @@ func fetchOrders(orderItems *fyne.Container) {
 			order.ID,
 			order.Product.Name,
 			order.Quantity,
-			*order.Total,
+			order.Total,
 			order.Status,
 			order.CreatedTime.Format("2006-01-02 15:04:05"),
 		)

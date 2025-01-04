@@ -3,20 +3,17 @@
 #include <iostream>
 
 void consumeRedisMessages(redisContext* context) {
-    redisReply* reply;
+    std::cout << "Starting Consuming Redis Messages" << std::endl;
     while (true) {
-        reply = (redisReply*)redisCommand(context, "BLPOP seckill_queue 0");
+        redisReply* reply = (redisReply*)redisCommand(context, "BLPOP checkout_queue 0");
         if (reply && reply->type == REDIS_REPLY_ARRAY && reply->element[1]) {
             std::string message(reply->element[1]->str, reply->element[1]->len);
             std::cout << "Received message: " << message << std::endl;
-            if (message == "")
-            {
-                std::cout << "Message is null, skipped" << std::endl;
+            if (message == "") {
+                std::cout << "Message is empty! Continue!" << std::endl;
                 continue;
             }
-            // ´¦ÀíÃëÉ±¶©µ¥
-            std::cout << "\nStart Resolving Seckill Requests\n" << std::endl;
-            createOrder(context, message);
+            processCheckoutRequest(message);
         }
         freeReplyObject(reply);
     }

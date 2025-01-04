@@ -11,10 +11,14 @@ import (
 
 func CreateOrderHandler(c *gin.Context) {
 	var req struct {
-		UserID    int     `json:"user_id"`
-		Total     float64 `json:"total"`
-		ProductID int     `json:"product_id"`
-		Quantity  int     `json:"quantity"`
+		UserID      int     `json:"user_id"`
+		Total       float64 `json:"total"`
+		ProductID   int     `json:"product_id"`
+		Quantity    int     `json:"quantity"`
+		Discount    float64 `json:"discount"`
+		Payable     float64 `json:"payable"`
+		CouponCode  string  `json:"coupon_code"`
+		OrderNumber string  `json:"order_number"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
@@ -24,12 +28,16 @@ func CreateOrderHandler(c *gin.Context) {
 	// 创建订单
 	order := rep.Order{
 		UserID:      req.UserID,
-		Total:       &req.Total,
+		Total:       req.Total,
 		Status:      "pending",
 		CreatedTime: time.Now(),
 		UpdateTime:  time.Now(),
 		ProductID:   req.ProductID,
 		Quantity:    req.Quantity,
+		Discount:    req.Discount,
+		Payable:     req.Payable,
+		CouponCode:  req.CouponCode,
+		OrderNumber: req.OrderNumber,
 	}
 	if err := rep.DB.Create(&order).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
@@ -75,8 +83,8 @@ func GetProductStockHandler(c *gin.Context) {
 func RepAPIInit() {
 	r := gin.Default()
 
-	r.POST("/api/orders/create", CreateOrderHandler)
-	r.GET("/api/products/stock", GetProductStockHandler)
+	r.POST("/orders/create", CreateOrderHandler)
+	r.GET("/products/stock", GetProductStockHandler)
 
 	r.Run(":8081")
 

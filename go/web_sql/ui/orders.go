@@ -56,11 +56,7 @@ func ordersScreen(win fyne.Window) fyne.CanvasObject {
 				case 1:
 					label.SetText(fmt.Sprintf("%d", record.UserID))
 				case 2:
-					if record.Total != nil {
-						label.SetText(fmt.Sprintf("%.2f", *record.Total))
-					} else {
-						label.SetText("N/A")
-					}
+					label.SetText(fmt.Sprintf("%.2f", record.Total))
 				case 3:
 					label.SetText(record.Status)
 				case 4:
@@ -150,7 +146,7 @@ func ordersScreen(win fyne.Window) fyne.CanvasObject {
 				UserID:      userID,
 				ProductID:   productIDInt,
 				Quantity:    quantityInt,
-				Total:       &totalValue,
+				Total:       totalValue,
 				Status:      status.Selected,
 				CreatedTime: time.Now(),
 				UpdateTime:  time.Now(),
@@ -213,11 +209,7 @@ func ordersScreen(win fyne.Window) fyne.CanvasObject {
 		quantity.Validator = validation.NewRegexp(`^\d+$`, "数量必须是整数")
 
 		total := widget.NewEntry()
-		if records[selectedRow].Total != nil {
-			total.SetText(fmt.Sprintf("%.2f", *records[selectedRow].Total))
-		} else {
-			total.SetText("")
-		}
+		total.SetText(fmt.Sprintf("%.2f", records[selectedRow].Total))
 		total.Validator = validation.NewRegexp(`^\d+(\.\d{1,2})?$`, "总金额必须是数字，最多两位小数")
 
 		status := widget.NewSelect(
@@ -245,7 +237,7 @@ func ordersScreen(win fyne.Window) fyne.CanvasObject {
 			err := rep.UpdateOrderStruct(rep.DB, records[selectedRow].ID, rep.Order{
 				ProductID:  productIDInt,
 				Quantity:   quantityInt,
-				Total:      &totalValue,
+				Total:      totalValue,
 				Status:     status.Selected,
 				UpdateTime: time.Now(),
 			})

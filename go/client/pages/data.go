@@ -74,7 +74,7 @@ type Coupon struct {
 type Order struct {
 	ID          int       `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID      int       `gorm:"not null" json:"user_id"`
-	Total       *float64  `gorm:"type:decimal(10,2);default:null" json:"total"`
+	Total       float64   `gorm:"type:decimal(10,2);default:null" json:"total"`
 	Status      string    `gorm:"type:enum('pending','paid','shipping','completed');default:'pending';not null" json:"status"`
 	CreatedTime time.Time `gorm:"not null" json:"created_time"`
 	UpdateTime  time.Time `gorm:"not null;autoUpdateTime" json:"update_time"`
@@ -83,6 +83,7 @@ type Order struct {
 	Discount    float64   `gorm:"type:decimal(10,2);not null" json:"discount"`
 	Payable     float64   `gorm:"type:decimal(10,2);not null" json:"payable"`
 	CouponCode  string    `gorm:"type:varchar(32);not null" json:"coupon_code"`
+	OrderNumber string    `gorm:"type:varchar(255);not null" json:"order_number"`
 
 	User    User    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Product Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
