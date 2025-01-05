@@ -194,8 +194,8 @@ func fetchProductsFromAPI(search string) ([]Product, error) {
 		fmt.Println("Error unmarshal reqBody:", err)
 		return nil, err
 	}
-	fmt.Println("Search:", search)
-	fmt.Println("ProductsResponse:", productsResponse)
+	// fmt.Println("Search:", search)
+	// fmt.Println("ProductsResponse:", productsResponse)
 	return productsResponse.Products, nil
 }
 
@@ -435,7 +435,13 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 			dialog.ShowCustom("选择数量", "关闭", dialogContent, fyne.CurrentApp().Driver().AllWindows()[1])
 		}),
 		widget.NewButton("立即购买", func() {
-			fmt.Println("购买:", product.Name)
+			// 检查用户是否登录
+			if currentUser == nil {
+				dialog.ShowInformation("未登录", "请先登录以进行购买", fyne.CurrentApp().Driver().AllWindows()[1])
+				return
+			}
+
+			showCouponSelectionDialog(currentUser.ID, product)
 		}),
 	)
 

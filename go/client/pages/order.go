@@ -110,7 +110,7 @@ func createOrderCard(order Order) fyne.CanvasObject {
 
 	// 订单基本信息
 	orderInfo := widget.NewLabel(fmt.Sprintf(
-		"商品: \t%s\n数量:\t %d\n总价:\t ￥%.2f\n折扣:\t ￥%.2f\n实付:\t ￥%.2f\n创建时间:\t %s",
+		"商品:     %s\n数量:     %d\n总价:     ￥%.2f\n折扣:     ￥%.2f\n实付:     ￥%.2f\n创建时间:  %s",
 		order.Product.Name,
 		order.Quantity,
 		order.Total,

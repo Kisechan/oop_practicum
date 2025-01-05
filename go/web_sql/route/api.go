@@ -48,7 +48,6 @@ func SetupRoutes(r *gin.Engine) {
 	orderRoutes := r.Group("/orders")
 	{
 		orderRoutes.POST("/checkout", control.CheckoutHandler)
-		// orderRoutes.POST("/checkout/result", control.CheckoutResultHandler)
 		orderRoutes.GET("/checkout/result/:order_number", control.GetCheckResultHandler)
 		orderRoutes.GET("/:id", control.GetOrdersHandler)
 	}
