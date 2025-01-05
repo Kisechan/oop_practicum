@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -20,7 +21,7 @@ func CreateCartPage() fyne.CanvasObject {
 	fetchCartItems(cartItems)
 
 	// 刷新按钮
-	refreshButton := widget.NewButton("刷新", func() {
+	refreshButton := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), func() {
 		// 清空购物车内容
 		cartItems.Objects = nil
 		// 重新获取购物车信息

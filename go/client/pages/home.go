@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -363,42 +364,68 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 			fmt.Println("加入购物车:", product.Name)
 			if currentUser == nil {
 				// 显示提示框
-				dialog.ShowInformation("未登录", "请先登录以加入购物车", fyne.CurrentApp().Driver().AllWindows()[0])
+				dialog.ShowInformation("未登录", "请先登录以加入购物车", fyne.CurrentApp().Driver().AllWindows()[1])
 				return
 			}
 
-			// 构建购物车项
-			cartItem := map[string]interface{}{
-				"user_id":    currentUser.ID,
-				"product_id": product.ID,
-				"quantity":   1, // 默认数量为 1
-			}
+			// 创建数量选择窗口
+			quantityEntry := widget.NewEntry()
+			quantityEntry.SetPlaceHolder("输入数量")
+			quantityEntry.SetText("1") // 默认数量为 1
 
-			// 发送加入购物车请求
-			cartItemJSON, err := json.Marshal(cartItem)
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("编码购物车项失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
-				return
-			}
-
-			resp, err := http.Post("http://localhost:8080/cart/items", "application/json", bytes.NewBuffer(cartItemJSON))
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("发送请求失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
-				return
-			}
-			defer resp.Body.Close()
-
-			// 处理响应
-			if resp.StatusCode == http.StatusCreated {
-				dialog.ShowInformation("成功", "商品已加入购物车", fyne.CurrentApp().Driver().AllWindows()[1])
-			} else {
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					dialog.ShowError(fmt.Errorf("读取响应失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
+			// 创建确认按钮
+			confirmButton := widget.NewButton("确认", func() {
+				quantityStr := quantityEntry.Text
+				quantity, err := strconv.Atoi(quantityStr)
+				if err != nil || quantity <= 0 {
+					dialog.ShowError(fmt.Errorf("请输入有效的数量"), fyne.CurrentApp().Driver().AllWindows()[1])
 					return
 				}
-				dialog.ShowError(fmt.Errorf("加入购物车失败: %s", string(body)), fyne.CurrentApp().Driver().AllWindows()[1])
-			}
+
+				// 构建购物车项
+				cartItem := map[string]interface{}{
+					"user_id":    currentUser.ID,
+					"product_id": product.ID,
+					"quantity":   quantity, // 使用用户输入的数量
+				}
+
+				// 发送加入购物车请求
+				cartItemJSON, err := json.Marshal(cartItem)
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("编码购物车项失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
+					return
+				}
+
+				resp, err := http.Post("http://localhost:8080/cart/items", "application/json", bytes.NewBuffer(cartItemJSON))
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("发送请求失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
+					return
+				}
+				defer resp.Body.Close()
+
+				// 处理响应
+				if resp.StatusCode == http.StatusCreated {
+					dialog.ShowInformation("成功", "商品已加入购物车", fyne.CurrentApp().Driver().AllWindows()[1])
+				} else {
+					body, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						dialog.ShowError(fmt.Errorf("读取响应失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
+						return
+					}
+					dialog.ShowError(fmt.Errorf("加入购物车失败: %s", string(body)), fyne.CurrentApp().Driver().AllWindows()[1])
+				}
+			})
+
+			// 创建对话框内容
+			dialogContent := container.NewGridWithRows(
+				3,
+				widget.NewLabel("加入购物车的数量:"),
+				quantityEntry,
+				confirmButton,
+			)
+
+			// 显示自定义对话框
+			dialog.ShowCustom("选择数量", "关闭", dialogContent, fyne.CurrentApp().Driver().AllWindows()[1])
 		}),
 		widget.NewButton("立即购买", func() {
 			fmt.Println("购买:", product.Name)

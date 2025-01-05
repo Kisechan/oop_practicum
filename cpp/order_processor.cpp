@@ -112,7 +112,7 @@ bool decreaseInventory(redisContext* context, int productId, int quantity) {
     }
 }
 
-// 处理优惠券
+// 使用优惠券
 bool useCoupon(const std::string& couponCode, int userId) {
     try {
         asio::io_context ioContext;
@@ -122,29 +122,43 @@ bool useCoupon(const std::string& couponCode, int userId) {
         tcp::socket socket(ioContext);
         asio::connect(socket, results.begin(), results.end());
 
+        // 构造 JSON 请求
         json::value couponRequest = {
             {"user_id", userId},
             {"coupon_code", couponCode}
         };
 
+        // 构造 HTTP POST 请求
         http::request<http::string_body> req{ http::verb::post, "/coupons/use", 11 };
         req.set(http::field::host, "localhost");
         req.set(http::field::content_type, "application/json");
         req.body() = json::serialize(couponRequest);
         req.prepare_payload();
 
+        // 发送请求
         http::write(socket, req);
 
+        // 接收响应
         beast::flat_buffer buffer;
         http::response<http::dynamic_body> res;
         http::read(socket, buffer, res);
 
+        // 解析响应
         std::string responseBody = beast::buffers_to_string(res.body().data());
         json::value jsonResponse = json::parse(responseBody);
 
+        // 关闭连接
         socket.shutdown(tcp::socket::shutdown_both);
 
-        return jsonResponse.at("status").as_string() == "success";
+        // 检查响应状态
+        if (jsonResponse.at("status").as_string() == "success") {
+            std::cout << "Coupon used successfully" << std::endl;
+            return true;
+        }
+        else {
+            std::cerr << "Failed to use coupon: " << responseBody << std::endl;
+            return false;
+        }
     }
     catch (const std::exception& e) {
         std::cerr << "Error using coupon: " << e.what() << std::endl;
@@ -199,7 +213,7 @@ void updateStockAsync(int productId, int quantity) {
                 {"quantity", -quantity}
             };
 
-            http::request<http::string_body> req{ http::verb::post, "/api/stock/update", 11 };
+            http::request<http::string_body> req{ http::verb::post, "/products/stock/update", 11 };
             req.set(http::field::host, "localhost");
             req.set(http::field::content_type, "application/json");
             req.body() = json::serialize(stockRequest);
@@ -281,18 +295,18 @@ void processCheckoutRequest(const std::string& requestJson) {
         }
         std::cout << "Start Checking Coupons" << std::endl;
         // 处理优惠券
-        //if (!useCoupon(couponCode, userId)) {
-        //    // 回滚库存
-        //    redisCommand(context, "INCRBY inventory:%d %d", productId, quantity);
+        if (!useCoupon(couponCode, userId)) {
+            // 回滚库存
+            redisCommand(context, "INCRBY inventory:%d %d", productId, quantity);
 
-        //    json::value result = {
-        //        {"order_number", orderNumber},
-        //        {"status", "failed"},
-        //        {"message", "Invalid coupon"}
-        //    };
-        //    redisCommand(context, "SET order_result:%s %s", orderNumber.c_str(), json::serialize(result).c_str());
-        //    return;
-        //}
+            json::value result = {
+                {"order_number", orderNumber},
+                {"status", "failed"},
+                {"message", "Invalid coupon"}
+            };
+            redisCommand(context, "SET order_result:%s %s", orderNumber.c_str(), json::serialize(result).c_str());
+            return;
+        }
 
         // 异步持久化订单信息
         std::cout << "Start Persisting Orders Asyncly" << std::endl;
@@ -305,7 +319,7 @@ void processCheckoutRequest(const std::string& requestJson) {
             {"discount", discount},
             {"payable", payable},
             {"total", total},
-            {"status", "completed"}
+            {"status", "pending"}
         };
         persistOrderAsync(order);
 
@@ -321,6 +335,8 @@ void processCheckoutRequest(const std::string& requestJson) {
             {"message", "Order completed"}
         };
         redisCommand(context, "SET order_result:%s %s", orderNumber.c_str(), json::serialize(result).c_str());
+
+        std::cout << "All things completed" << std::endl;
     }
     catch (const std::exception& e) {
         std::cerr << "Error processing checkout request: " << e.what() << std::endl;

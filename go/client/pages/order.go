@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -21,7 +22,7 @@ func CreateOrdersPage() fyne.CanvasObject {
 	fetchOrders(orderItems)
 
 	// 刷新按钮
-	refreshButton := widget.NewButton("刷新", func() {
+	refreshButton := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), func() {
 		// 清空订单内容
 		orderItems.Objects = nil
 		// 重新获取订单信息

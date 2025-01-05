@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 	"web_sql/rep"
 
@@ -74,39 +73,39 @@ func CheckoutHandler(c *gin.Context) {
 	})
 }
 
-// 秒杀结果的缓存
-var seckillResults = struct {
-	sync.RWMutex
-	results map[string]string
-}{results: make(map[string]string)}
+// // 秒杀结果的缓存
+// var seckillResults = struct {
+// 	sync.RWMutex
+// 	results map[string]string
+// }{results: make(map[string]string)}
 
-// 处理秒杀结果的控制器
-func CheckoutResultHandler(c *gin.Context) {
-	var result struct {
-		OrderID string `json:"order_id"`
-		Status  string `json:"status"`
-		Message string `json:"message"`
-	}
-	if err := c.ShouldBindJSON(&result); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
+// // 处理秒杀结果的控制器
+// func CheckoutResultHandler(c *gin.Context) {
+// 	var result struct {
+// 		OrderID string `json:"order_id"`
+// 		Status  string `json:"status"`
+// 		Message string `json:"message"`
+// 	}
+// 	if err := c.ShouldBindJSON(&result); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+// 		return
+// 	}
 
-	// 将秒杀结果存入缓存
-	seckillResults.Lock()
-	seckillResults.results[result.OrderID] = result.Status
-	seckillResults.Unlock()
+// 	// 将秒杀结果存入缓存
+// 	seckillResults.Lock()
+// 	seckillResults.results[result.OrderID] = result.Status
+// 	seckillResults.Unlock()
 
-	c.JSON(http.StatusOK, gin.H{"message": "Seckill result saved"})
-}
+// 	c.JSON(http.StatusOK, gin.H{"message": "Seckill result saved"})
+// }
 
 // 查询秒杀结果的控制器
-func GetCheckoutResultHandler(c *gin.Context) {
+func GetCheckResultHandler(c *gin.Context) {
 	// 获取订单号
 	orderNumber := c.Param("order_number")
 
-	// 从Redis中获取订单结果
-	orderResult, err := GetFromRedis("order_result:" + orderNumber)
+	// 从 Redis 中获取订单结果
+	result, err := redisClient.Get(ctx, "order_result:"+orderNumber).Result()
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
@@ -115,7 +114,7 @@ func GetCheckoutResultHandler(c *gin.Context) {
 	// 返回订单结果
 	c.JSON(http.StatusOK, gin.H{
 		"order_number": orderNumber,
-		"result":       orderResult,
+		"result":       result,
 	})
 }
 

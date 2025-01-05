@@ -80,11 +80,55 @@ func GetProductStockHandler(c *gin.Context) {
 	})
 }
 
+// 更新库存控制器
+func UpdateStockHandler(c *gin.Context) {
+	type UpdateStockRequest struct {
+		ProductID int `json:"product_id"`
+		Quantity  int `json:"quantity"`
+	}
+	var request UpdateStockRequest
+
+	// 解析请求体
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// 根据 product_id 查询商品
+	var product rep.Product
+	if err := rep.DB.First(&product, request.ProductID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	// 更新库存
+	newStock := product.Stock + request.Quantity
+	if newStock < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
+		return
+	}
+
+	// 更新数据库中的库存
+	product.Stock = newStock
+	if err := rep.DB.Save(&product).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
+		return
+	}
+
+	// 返回成功响应
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Stock updated successfully",
+		"product": product,
+	})
+}
+
 func RepAPIInit() {
 	r := gin.Default()
 
 	r.POST("/orders/create", CreateOrderHandler)
 	r.GET("/products/stock", GetProductStockHandler)
+	r.POST("/products/stock/update", UpdateStockHandler)
 
 	r.Run(":8081")
 
