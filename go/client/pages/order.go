@@ -16,7 +16,7 @@ import (
 func CreateOrdersPage() fyne.CanvasObject {
 	// 初始化订单内容
 	orderItems := container.NewVBox()
-	Label := widget.NewLabel("您尚未登录")
+	label := widget.NewLabel("您尚未登录")
 
 	// 获取订单信息
 	fetchOrders(orderItems)
@@ -28,7 +28,7 @@ func CreateOrdersPage() fyne.CanvasObject {
 		// 重新获取订单信息
 		fetchOrders(orderItems)
 		if currentUser != nil {
-			Label.Hide()
+			label.Hide()
 		}
 	})
 
@@ -38,8 +38,19 @@ func CreateOrdersPage() fyne.CanvasObject {
 	// 整体布局
 	return container.NewBorder(
 		container.NewVBox(
-			widget.NewLabelWithStyle("订单", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			Label,
+			widget.NewRichText(
+				&widget.TextSegment{
+					Text: "我的订单",
+					Style: widget.RichTextStyle{
+						SizeName:  theme.SizeNameHeadingText,
+						Alignment: fyne.TextAlignCenter,
+						TextStyle: fyne.TextStyle{
+							Bold: true,
+						},
+					},
+				},
+			),
+			label,
 			refreshButton,
 		),
 		nil,
@@ -70,6 +81,7 @@ func fetchOrders(orderItems *fyne.Container) {
 		return
 	}
 	fmt.Println("订单信息:", string(body))
+
 	// 解析订单信息
 	var orderResponse struct {
 		Orders []Order `json:"orders"`
@@ -81,20 +93,49 @@ func fetchOrders(orderItems *fyne.Container) {
 
 	// 展示订单信息
 	for _, order := range orderResponse.Orders {
-		orderInfo := fmt.Sprintf(
-			"订单ID: %d\n商品: %s\n数量: %d\n总价: ￥%.2f\n状态: %s\n创建时间: %s",
-			order.ID,
-			order.Product.Name,
-			order.Quantity,
-			order.Total,
-			order.Status,
-			order.CreatedTime.Format("2006-01-02 15:04:05"),
-		)
-		orderCard := widget.NewCard(
-			fmt.Sprintf("订单 %d", order.ID),
-			orderInfo,
-			nil,
-		)
+		orderCard := createOrderCard(order)
 		orderItems.Add(orderCard)
 	}
+}
+
+// 创建订单卡片
+func createOrderCard(order Order) fyne.CanvasObject {
+
+	// 订单状态标签
+	statusLabel := widget.NewLabelWithStyle(
+		fmt.Sprintf("状态: %s", OrderStatus[order.Status]),
+		fyne.TextAlignLeading,
+		fyne.TextStyle{Bold: true},
+	)
+
+	// 订单基本信息
+	orderInfo := widget.NewLabel(fmt.Sprintf(
+		"商品: \t%s\n数量:\t %d\n总价:\t ￥%.2f\n折扣:\t ￥%.2f\n实付:\t ￥%.2f\n创建时间:\t %s",
+		order.Product.Name,
+		order.Quantity,
+		order.Total,
+		order.Discount,
+		order.Payable,
+		order.CreatedTime.Format("2006-01-02 15:04:05"),
+	))
+	orderInfo.Wrapping = fyne.TextWrapWord
+
+	// 订单卡片布局
+	cardContent := container.NewVBox(
+		container.NewHBox(
+			widget.NewIcon(theme.DocumentIcon()),
+			widget.NewLabel("订单-"+order.OrderNumber),
+		),
+		widget.NewSeparator(),
+		statusLabel,
+		orderInfo,
+		// widget.NewSeparator(),
+	)
+
+	// 创建卡片
+	return widget.NewCard(
+		"",
+		"",
+		cardContent,
+	)
 }

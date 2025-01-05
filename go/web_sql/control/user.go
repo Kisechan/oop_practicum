@@ -98,6 +98,7 @@ func UpdateUserInfoHandler(c *gin.Context) {
 		Username string  `json:"username"`
 		Email    *string `json:"email"`
 		Phone    string  `json:"phone"`
+		Address  *string `json:"address"`
 	}
 
 	// 绑定 JSON 数据到 updateRequest
@@ -117,6 +118,7 @@ func UpdateUserInfoHandler(c *gin.Context) {
 	user.Username = updateRequest.Username
 	user.Email = updateRequest.Email
 	user.Phone = updateRequest.Phone
+	user.Address = updateRequest.Address
 
 	if err := rep.DB.Save(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})

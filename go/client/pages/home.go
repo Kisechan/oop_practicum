@@ -191,7 +191,7 @@ func fetchProductsFromAPI(search string) ([]Product, error) {
 
 	var productsResponse ProductsResponse
 	if err := json.Unmarshal(body, &productsResponse); err != nil {
-		fmt.Println("Error unmarshal reqbody:", err)
+		fmt.Println("Error unmarshal reqBody:", err)
 		return nil, err
 	}
 	fmt.Println("Search:", search)
@@ -289,6 +289,10 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 	// 提交按钮
 	submitButton := widget.NewButton("提交评论", func() {
 		// 发送评论
+		if commentEntry.Text == "" {
+			dialog.ShowError(fmt.Errorf("评论不能为空"), fyne.CurrentApp().Driver().AllWindows()[1])
+			return
+		}
 		sendReview(product.ID, fmt.Sprintf("%d", int(ratingSlider.Value)), commentEntry.Text)
 		// 刷新评论列表
 		reviews, err := fetchReviewsFromAPI(product.ID)
@@ -418,10 +422,13 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 
 			// 创建对话框内容
 			dialogContent := container.NewGridWithRows(
-				3,
+				2,
 				widget.NewLabel("加入购物车的数量:"),
-				quantityEntry,
-				confirmButton,
+				container.NewGridWithColumns(
+					2,
+					quantityEntry,
+					confirmButton,
+				),
 			)
 
 			// 显示自定义对话框

@@ -423,11 +423,13 @@ func updateUserInfo(user *User) error {
 		Username string  `json:"username"`
 		Email    *string `json:"email"`
 		Phone    string  `json:"phone"`
+		Address  *string `json:"address"`
 	}{
 		ID:       user.ID,
 		Username: user.Username,
 		Email:    user.Email,
 		Phone:    user.Phone,
+		Address:  user.Address,
 	}
 
 	updateJSON, err := json.Marshal(updateRequest)
