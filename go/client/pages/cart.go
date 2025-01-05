@@ -15,25 +15,117 @@ import (
 // 购物车页面
 func CreateCartPage() fyne.CanvasObject {
 	// 初始化购物车内容
-	cartItems := container.NewVBox()
+	var (
+		cartItems []Cart
+		cartList  *widget.List
+	)
 	label := widget.NewLabel("您尚未登录")
+	// 创建可滑动的列表
+	cartList = widget.NewList(
+		func() int {
+			return len(cartItems)
+		},
+		func() fyne.CanvasObject {
+			// 创建列表项的模板
+			nameLabel := widget.NewLabel("商品名称") // 商品名称
+			nameLabel.TextStyle.Bold = true
+
+			priceLabel := widget.NewLabel("价格") // 商品价格
+			priceLabel.Alignment = fyne.TextAlignTrailing
+
+			quantityLabel := widget.NewLabel("数量") // 商品数量
+			quantityLabel.Alignment = fyne.TextAlignTrailing
+
+			totalLabel := widget.NewLabel("总价") // 商品总价
+			totalLabel.Alignment = fyne.TextAlignTrailing
+			totalLabel.TextStyle.Bold = true
+
+			deleteButton := widget.NewButtonWithIcon("删除", theme.DeleteIcon(), func() {}) // 删除按钮
+			deleteButton.Importance = widget.LowImportance
+
+			buyButton := widget.NewButtonWithIcon("购买", theme.ConfirmIcon(), func() {}) // 购买按钮
+			buyButton.Importance = widget.HighImportance
+
+			// 商品信息布局
+			infoContainer := container.NewGridWithColumns(
+				3,
+				nameLabel,
+				priceLabel,
+				quantityLabel,
+			)
+
+			// 操作按钮布局
+			buttonContainer := container.NewGridWithColumns(
+				2,
+				deleteButton,
+				buyButton,
+			)
+
+			// 整体布局
+			return widget.NewCard(
+				"", // 卡片标题（留空）
+				"", // 卡片副标题（留空）
+				container.NewVBox(
+					container.NewHBox(
+						widget.NewIcon(theme.DocumentIcon()), // 图标
+						infoContainer,
+					),
+					totalLabel,
+					widget.NewSeparator(),
+					buttonContainer,
+				),
+			)
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			cartItem := cartItems[i]
+			card := o.(*widget.Card)
+			cardContent := card.Content.(*fyne.Container)
+
+			// 获取列表项中的组件
+			infoContainer := cardContent.Objects[0].(*fyne.Container).Objects[1].(*fyne.Container)
+			totalLabel := cardContent.Objects[1].(*widget.Label)
+			buttonContainer := cardContent.Objects[3].(*fyne.Container)
+
+			nameLabel := infoContainer.Objects[0].(*widget.Label)
+			priceLabel := infoContainer.Objects[1].(*widget.Label)
+			quantityLabel := infoContainer.Objects[2].(*widget.Label)
+
+			deleteButton := buttonContainer.Objects[0].(*widget.Button)
+			buyButton := buttonContainer.Objects[1].(*widget.Button)
+
+			// 设置商品信息
+			nameLabel.SetText(cartItem.Product.Name)
+			priceLabel.SetText(fmt.Sprintf("￥%.2f", cartItem.Product.Price))
+			quantityLabel.SetText(fmt.Sprintf("x %d", cartItem.Quantity))
+			totalLabel.SetText(fmt.Sprintf("总价: ￥%.2f", cartItem.Product.Price*float64(cartItem.Quantity)))
+
+			// 设置按钮事件
+			deleteButton.OnTapped = func() {
+				fmt.Println("删除商品:", cartItem.Product.Name)
+				deleteCartItem(cartItem.ID, &cartItems, cartList)
+			}
+
+			buyButton.OnTapped = func() {
+				fmt.Println("购买商品:", cartItem.Product.Name)
+				showCouponSelectionDialogCart(currentUser.ID, cartItem)
+				deleteCartItem(cartItem.ID, &cartItems, cartList)
+			}
+		},
+	)
 
 	// 获取购物车信息
-	fetchCartItems(cartItems)
+	fetchCartItems(&cartItems, cartList)
 
 	// 刷新按钮
 	refreshButton := widget.NewButtonWithIcon("刷新", theme.ViewRefreshIcon(), func() {
 		// 清空购物车内容
-		cartItems.Objects = nil
+		cartItems = nil
 		// 重新获取购物车信息
-		fetchCartItems(cartItems)
+		fetchCartItems(&cartItems, cartList)
 		if currentUser != nil {
 			label.Hide()
 		}
 	})
-
-	// 可滚动的购物车商品信息
-	scrollContainer := container.NewScroll(cartItems)
 
 	// 整体布局
 	return container.NewBorder(
@@ -56,12 +148,12 @@ func CreateCartPage() fyne.CanvasObject {
 		nil,
 		nil,
 		nil,
-		scrollContainer,
+		cartList,
 	)
 }
 
 // 获取购物车信息
-func fetchCartItems(cartItems *fyne.Container) {
+func fetchCartItems(cartItems *[]Cart, cartList *widget.List) {
 	// 发送 GET 请求获取购物车信息
 	if currentUser == nil {
 		fmt.Println("未登录")
@@ -90,63 +182,13 @@ func fetchCartItems(cartItems *fyne.Container) {
 		return
 	}
 
-	// 展示购物车信息
-	for _, cartItem := range cartResponse.CartItems {
-		cartCard := createCartCard(cartItem)
-		cartItems.Add(cartCard)
-	}
-}
-
-// 创建购物车卡片
-func createCartCard(cartItem Cart) fyne.CanvasObject {
-	// 商品信息
-	productInfo := widget.NewLabel(fmt.Sprintf(
-		"价格: ￥%.2f\n数量: %d\n总价: ￥%.2f",
-		cartItem.Product.Price,
-		cartItem.Quantity,
-		cartItem.Product.Price*float64(cartItem.Quantity),
-	))
-	productInfo.Wrapping = fyne.TextWrapWord
-
-	// 删除按钮
-	deleteButton := widget.NewButtonWithIcon("删除", theme.DeleteIcon(), func() {
-		fmt.Println("删除商品:", cartItem.Product.Name)
-		// 调用 API 删除商品
-		deleteCartItem(cartItem.ID)
-	})
-
-	// 购买按钮
-	buyButton := widget.NewButtonWithIcon("购买", theme.ConfirmIcon(), func() {
-		fmt.Println("购买商品:", cartItem.Product.Name)
-		// 调用 API 购买商品
-		buyCartItem(cartItem.ID)
-	})
-
-	// 按钮容器
-	buttonContainer := container.NewGridWithColumns(
-		2,
-		deleteButton,
-		buyButton,
-	)
-
-	// 卡片内容
-	cardContent := container.NewVBox(
-		container.NewHBox(widget.NewIcon(theme.FileIcon()), widget.NewLabel(cartItem.Product.Name)),
-		productInfo,
-		widget.NewSeparator(),
-		buttonContainer,
-	)
-
-	// 创建卡片
-	return widget.NewCard(
-		"",
-		"",
-		cardContent,
-	)
+	// 更新购物车列表
+	*cartItems = cartResponse.CartItems
+	cartList.Refresh()
 }
 
 // 删除购物车项
-func deleteCartItem(cartItemID int) {
+func deleteCartItem(cartItemID int, cartItems *[]Cart, cartList *widget.List) {
 	// 调用 API 删除购物车项
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:8080/cart/items/%d", cartItemID), nil)
 	if err != nil {
@@ -164,31 +206,16 @@ func deleteCartItem(cartItemID int) {
 
 	if resp.StatusCode == http.StatusOK {
 		fmt.Println("删除成功")
+		// 从本地列表中移除该项
+		for i, item := range *cartItems {
+			if item.ID == cartItemID {
+				*cartItems = append((*cartItems)[:i], (*cartItems)[i+1:]...)
+				break
+			}
+		}
+		// 刷新列表
+		cartList.Refresh()
 	} else {
 		fmt.Println("删除失败")
-	}
-}
-
-// 购买购物车项
-func buyCartItem(cartItemID int) {
-	// 调用 API 购买购物车项
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:8080/cart/items/%d/buy", cartItemID), nil)
-	if err != nil {
-		fmt.Println("创建购买请求失败:", err)
-		return
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("购买购物车项失败:", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		fmt.Println("购买成功")
-	} else {
-		fmt.Println("购买失败")
 	}
 }

@@ -114,6 +114,7 @@ bool decreaseInventory(redisContext* context, int productId, int quantity) {
 
 //  π”√”≈ª›»Ø
 bool useCoupon(const std::string& couponCode, int userId) {
+    if (couponCode == "") return true;
     try {
         asio::io_context ioContext;
         tcp::resolver resolver(ioContext);

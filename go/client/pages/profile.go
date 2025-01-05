@@ -54,7 +54,7 @@ func createLoginPage() fyne.CanvasObject {
 
 		// 登录成功，更新当前用户
 		currentUser = user
-		fmt.Println("User:", *user, "Login Successfully")
+		// fmt.Println("User:", *user, "Login Successfully")
 		// 更新个人主页内容
 		tabs := fyne.CurrentApp().Driver().AllWindows()[0].Content().(*container.AppTabs)
 		tabs.Items[3].Content = createUserInfoPage()
