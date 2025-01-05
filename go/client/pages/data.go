@@ -88,3 +88,10 @@ type Order struct {
 	User    User    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Product Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
+
+var OrderStatus = map[string]string{
+	"pending":   "待支付",
+	"paid":      "已支付",
+	"shipping":  "配送中",
+	"completed": "已完成",
+}

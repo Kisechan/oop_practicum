@@ -16,7 +16,8 @@ import (
 func CreateCartPage() fyne.CanvasObject {
 	// 初始化购物车内容
 	cartItems := container.NewVBox()
-	Label := widget.NewLabel("您尚未登录")
+	label := widget.NewLabel("您尚未登录")
+
 	// 获取购物车信息
 	fetchCartItems(cartItems)
 
@@ -27,59 +28,30 @@ func CreateCartPage() fyne.CanvasObject {
 		// 重新获取购物车信息
 		fetchCartItems(cartItems)
 		if currentUser != nil {
-			Label.Hide()
+			label.Hide()
 		}
 	})
-
-	// 删除按钮
-	deleteButton := widget.NewButton("删除", func() {
-		// 获取选中的商品
-		var selectedItems []Cart
-		for _, item := range cartItems.Objects {
-			if checkbox, ok := item.(*widget.Check); ok && checkbox.Checked {
-				// 获取对应的购物车项
-				selectedItems = append(selectedItems, getCartItemFromCheckbox(checkbox))
-			}
-		}
-		// 删除选中的商品
-		if len(selectedItems) > 0 {
-			fmt.Println("删除选中的商品:", selectedItems)
-			// 这里可以调用 API 删除选中的商品
-		} else {
-			fmt.Println("未选中任何商品")
-		}
-	})
-
-	// 结算按钮
-	checkoutButton := widget.NewButton("结算", func() {
-		// 获取选中的商品
-		var selectedItems []Cart
-		for _, item := range cartItems.Objects {
-			if checkbox, ok := item.(*widget.Check); ok && checkbox.Checked {
-				// 获取对应的购物车项
-				selectedItems = append(selectedItems, getCartItemFromCheckbox(checkbox))
-			}
-		}
-		// 结算选中的商品
-		if len(selectedItems) > 0 {
-			fmt.Println("结算选中的商品:", selectedItems)
-		} else {
-			fmt.Println("未选中任何商品")
-		}
-	})
-
-	buttonContainer := container.NewGridWithColumns(3, refreshButton, deleteButton, checkoutButton)
 
 	// 可滚动的购物车商品信息
 	scrollContainer := container.NewScroll(cartItems)
-	// scrollContainer.SetMinSize(fyne.NewSize(400, 300)) // 设置滚动区域的最小大小
 
 	// 整体布局
 	return container.NewBorder(
 		container.NewVBox(
-			widget.NewLabelWithStyle("购物车", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			Label,
-			buttonContainer,
+			widget.NewRichText(
+				&widget.TextSegment{
+					Text: "购物车",
+					Style: widget.RichTextStyle{
+						SizeName:  theme.SizeNameHeadingText,
+						Alignment: fyne.TextAlignCenter,
+						TextStyle: fyne.TextStyle{
+							Bold: true,
+						},
+					},
+				},
+			),
+			label,
+			refreshButton,
 		),
 		nil,
 		nil,
@@ -88,6 +60,7 @@ func CreateCartPage() fyne.CanvasObject {
 	)
 }
 
+// 获取购物车信息
 func fetchCartItems(cartItems *fyne.Container) {
 	// 发送 GET 请求获取购物车信息
 	if currentUser == nil {
@@ -107,7 +80,6 @@ func fetchCartItems(cartItems *fyne.Container) {
 		fmt.Println("读取响应体失败:", err)
 		return
 	}
-	// fmt.Println("响应体内容:", string(body))
 
 	// 解析购物车信息
 	var cartResponse struct {
@@ -120,37 +92,103 @@ func fetchCartItems(cartItems *fyne.Container) {
 
 	// 展示购物车信息
 	for _, cartItem := range cartResponse.CartItems {
-		checkbox := widget.NewCheck(
-			fmt.Sprintf("%s - ￥%.2f x %d", cartItem.Product.Name, cartItem.Product.Price, cartItem.Quantity),
-			nil,
-		)
-		checkbox.SetChecked(false)
-		checkbox.OnChanged = func(checked bool) {
-			if checked {
-				fmt.Println("选中商品:", cartItem.Product.Name)
-			} else {
-				fmt.Println("取消选中商品:", cartItem.Product.Name)
-			}
-		}
-		cartItems.Add(checkbox)
+		cartCard := createCartCard(cartItem)
+		cartItems.Add(cartCard)
 	}
 }
 
-// 从勾选框获取对应的购物车项
-func getCartItemFromCheckbox(checkbox *widget.Check) Cart {
-	// 这里假设勾选框的标签格式为 "商品名 - ￥价格 x 数量"
-	label := checkbox.Text
-	// 解析商品名、价格和数量
-	var productName string
-	var price float64
-	var quantity int
-	fmt.Sscanf(label, "%s - ￥%f x %d", &productName, &price, &quantity)
-	// 返回对应的购物车项
-	return Cart{
-		Product: Product{
-			Name:  productName,
-			Price: price,
-		},
-		Quantity: quantity,
+// 创建购物车卡片
+func createCartCard(cartItem Cart) fyne.CanvasObject {
+	// 商品信息
+	productInfo := widget.NewLabel(fmt.Sprintf(
+		"价格: ￥%.2f\n数量: %d\n总价: ￥%.2f",
+		cartItem.Product.Price,
+		cartItem.Quantity,
+		cartItem.Product.Price*float64(cartItem.Quantity),
+	))
+	productInfo.Wrapping = fyne.TextWrapWord
+
+	// 删除按钮
+	deleteButton := widget.NewButtonWithIcon("删除", theme.DeleteIcon(), func() {
+		fmt.Println("删除商品:", cartItem.Product.Name)
+		// 调用 API 删除商品
+		deleteCartItem(cartItem.ID)
+	})
+
+	// 购买按钮
+	buyButton := widget.NewButtonWithIcon("购买", theme.ConfirmIcon(), func() {
+		fmt.Println("购买商品:", cartItem.Product.Name)
+		// 调用 API 购买商品
+		buyCartItem(cartItem.ID)
+	})
+
+	// 按钮容器
+	buttonContainer := container.NewGridWithColumns(
+		2,
+		deleteButton,
+		buyButton,
+	)
+
+	// 卡片内容
+	cardContent := container.NewVBox(
+		container.NewHBox(widget.NewIcon(theme.FileIcon()), widget.NewLabel(cartItem.Product.Name)),
+		productInfo,
+		widget.NewSeparator(),
+		buttonContainer,
+	)
+
+	// 创建卡片
+	return widget.NewCard(
+		"",
+		"",
+		cardContent,
+	)
+}
+
+// 删除购物车项
+func deleteCartItem(cartItemID int) {
+	// 调用 API 删除购物车项
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:8080/cart/items/%d", cartItemID), nil)
+	if err != nil {
+		fmt.Println("创建删除请求失败:", err)
+		return
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("删除购物车项失败:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		fmt.Println("删除成功")
+	} else {
+		fmt.Println("删除失败")
+	}
+}
+
+// 购买购物车项
+func buyCartItem(cartItemID int) {
+	// 调用 API 购买购物车项
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:8080/cart/items/%d/buy", cartItemID), nil)
+	if err != nil {
+		fmt.Println("创建购买请求失败:", err)
+		return
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("购买购物车项失败:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		fmt.Println("购买成功")
+	} else {
+		fmt.Println("购买失败")
 	}
 }
