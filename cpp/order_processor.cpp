@@ -320,6 +320,7 @@ void processCheckoutRequest(const std::string& requestJson) {
             {"discount", discount},
             {"payable", payable},
             {"total", total},
+            {"coupon_code", couponCode},
             {"status", "pending"}
         };
         persistOrderAsync(order);
