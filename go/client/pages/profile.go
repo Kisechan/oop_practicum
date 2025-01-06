@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -66,7 +65,7 @@ func createLoginPage() fyne.CanvasObject {
 		// 显示注册页面
 		registerWindow := fyne.CurrentApp().NewWindow("注册")
 		registerWindow.SetContent(createRegisterPage())
-		registerWindow.Resize(fyne.NewSize(360, 780))
+		registerWindow.Resize(fyne.NewSize(680, 400))
 		registerWindow.Show()
 	})
 
@@ -174,8 +173,8 @@ func createRegisterPage() fyne.CanvasObject {
 
 		// 注册成功，关闭注册窗口
 		dialog.ShowInformation("注册成功", "请返回登录页面进行登录", fyne.CurrentApp().Driver().AllWindows()[1])
-		time.Sleep(5 * time.Second)
-		fyne.CurrentApp().Driver().AllWindows()[1].Close()
+		// time.Sleep(5 * time.Second)
+		// fyne.CurrentApp().Driver().AllWindows()[1].Close()
 	})
 
 	// 布局

@@ -72,11 +72,11 @@ func placeOrder(userID, productID, quantity int, couponCode string, discount, pa
 	return orderNumber, nil
 }
 
-func pollOrderResult(orderNumber string) (string, error) {
+func pollOrderResult(orderNumber string) (string, string, error) {
 	for {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:8080/orders/checkout/result/%s", orderNumber))
 		if err != nil {
-			return "", fmt.Errorf("轮询订单结果失败: %v", err)
+			return "错误", "订单结果查询失败", fmt.Errorf("轮询订单结果失败: %v", err)
 		}
 		defer resp.Body.Close()
 
@@ -84,13 +84,13 @@ func pollOrderResult(orderNumber string) (string, error) {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
 			// 订单结果未找到，继续轮询
-			time.Sleep(2 * time.Second)
+			time.Sleep(1 * time.Second)
 			continue
 		case http.StatusOK:
 			// 读取响应体
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return "", fmt.Errorf("读取响应体失败: %v", err)
+				return "错误", "响应体读取失败", fmt.Errorf("读取响应体失败: %v", err)
 			}
 
 			// 打印响应体以便调试
@@ -102,7 +102,7 @@ func pollOrderResult(orderNumber string) (string, error) {
 				Result      string `json:"result"` // result 是一个嵌套的 JSON 字符串
 			}
 			if err := json.Unmarshal(body, &outerResult); err != nil {
-				return "", fmt.Errorf("解析外层订单结果失败: %v", err)
+				return "错误", "外层订单解析失败", fmt.Errorf("解析外层订单结果失败: %v", err)
 			}
 
 			// 解析嵌套的 JSON（result 字段）
@@ -112,21 +112,21 @@ func pollOrderResult(orderNumber string) (string, error) {
 				Message     string `json:"message"`
 			}
 			if err := json.Unmarshal([]byte(outerResult.Result), &innerResult); err != nil {
-				return "", fmt.Errorf("解析嵌套订单结果失败: %v", err)
+				return "错误", "嵌套读取失败", fmt.Errorf("解析嵌套订单结果失败: %v", err)
 			}
 
 			// 返回订单状态
-			return innerResult.Status, nil
+			return innerResult.Status, innerResult.Message, nil
 		default:
 			// 其他错误状态码
-			return "", fmt.Errorf("请求失败，状态码: %d", resp.StatusCode)
+			return "错误", "其他错误", fmt.Errorf("请求失败，状态码: %d", resp.StatusCode)
 		}
 	}
 }
 
-func showPurchaseResultCart(status string) {
+func showPurchaseResultCart(status string, message string) {
 	// 显示购买结果
-	dialog.ShowInformation("购买结果", status, fyne.CurrentApp().Driver().AllWindows()[0])
+	dialog.ShowInformation("购买结果", Message[status]+"\n"+Message[message], fyne.CurrentApp().Driver().AllWindows()[0])
 }
 
 func sendCheckoutOnCouponCart(product Product, quantity int, couponCode string, discount float64, payable float64, originalTotal float64) {
@@ -140,14 +140,14 @@ func sendCheckoutOnCouponCart(product Product, quantity int, couponCode string, 
 	// 轮询订单结果
 	go func() {
 		fmt.Println("开始轮询订单结果，订单号:", orderNumber)
-		status, err := pollOrderResult(orderNumber)
+		status, message, err := pollOrderResult(orderNumber)
 		if err != nil {
 			dialog.ShowError(fmt.Errorf("获取订单结果失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[0])
 			return
 		}
 		fmt.Println("购买结果:", status)
 		// 显示购买结果
-		showPurchaseResultCart(status)
+		showPurchaseResultCart(status, message)
 	}()
 }
 
@@ -179,9 +179,9 @@ func showCouponSelectionDialogCart(userID int, cart Cart) {
 	discount = 0.00
 	payable = total - discount
 
-	totalLabel := widget.NewLabel(fmt.Sprintf("总价：%.2f", total))
-	discountLabel := widget.NewLabel(fmt.Sprintf("折扣：%.2f", discount))
-	payableLabel := widget.NewLabel(fmt.Sprintf("实付价：%.2f", payable))
+	totalLabel := widget.NewLabel(fmt.Sprintf("总价： %.2f", total))
+	discountLabel := widget.NewLabel(fmt.Sprintf("折扣： -%.2f", discount))
+	payableLabel := widget.NewLabel(fmt.Sprintf("实付价： %.2f", payable))
 
 	couponRadio := widget.NewRadioGroup(couponOptions, func(s string) {
 		if s == "不选择优惠券" || s == "" {
@@ -190,8 +190,8 @@ func showCouponSelectionDialogCart(userID int, cart Cart) {
 			discount = 0.00
 			payable = total - discount
 
-			totalLabel.SetText(fmt.Sprintf("总价：    %.2f", total))
-			discountLabel.SetText(fmt.Sprintf("折扣：-   %.2f", discount))
+			totalLabel.SetText(fmt.Sprintf("总价： %.2f", total))
+			discountLabel.SetText(fmt.Sprintf("折扣： -%.2f", discount))
 			payableLabel.SetText(fmt.Sprintf("实付价： %.2f", payable))
 			return
 		}
@@ -213,9 +213,14 @@ func showCouponSelectionDialogCart(userID int, cart Cart) {
 		discount = coupon.Discount
 		payable = total - discount
 
-		// 更新 UI
-		totalLabel.SetText(fmt.Sprintf("总价：    %.2f", total))
-		discountLabel.SetText(fmt.Sprintf("折扣：-   %.2f", discount))
+		if payable < 0 {
+			totalLabel.SetText(fmt.Sprintf("总价： %.2f", total))
+			discountLabel.SetText("不可用此优惠券")
+			payableLabel.SetText(fmt.Sprintf("实付价： %.2f", total))
+			return
+		}
+		totalLabel.SetText(fmt.Sprintf("总价： %.2f", total))
+		discountLabel.SetText(fmt.Sprintf("折扣： -%.2f", discount))
 		payableLabel.SetText(fmt.Sprintf("实付价： %.2f", payable))
 	})
 
@@ -233,7 +238,10 @@ func showCouponSelectionDialogCart(userID int, cart Cart) {
 		if !confirmed {
 			return
 		}
-
+		if payable <= 0 {
+			dialog.ShowError(fmt.Errorf("不可选择此优惠券"), fyne.CurrentApp().Driver().AllWindows()[0])
+			return
+		}
 		if couponRadio.Selected == "不选择优惠券" || couponRadio.Selected == "" {
 			sendCheckoutOnCouponCart(product, quantity, "", discount, payable, total)
 			return

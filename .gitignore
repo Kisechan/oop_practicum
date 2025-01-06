@@ -2,3 +2,4 @@
 /boost/boost.*
 /qt/build*
 /boost
+/release

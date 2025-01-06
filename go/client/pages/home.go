@@ -376,7 +376,24 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 			quantityEntry := widget.NewEntry()
 			quantityEntry.SetPlaceHolder("输入数量")
 			quantityEntry.SetText("1") // 默认数量为 1
-
+			quantityEntry.OnChanged = func(s string) {
+				quantityStr := quantityEntry.Text
+				if quantityStr == "" {
+					return
+				}
+				quantity, err := strconv.Atoi(quantityStr)
+				if err != nil || quantity <= 0 {
+					quantityEntry.SetText("1")
+					dialog.ShowError(fmt.Errorf("请输入有效的数量"), fyne.CurrentApp().Driver().AllWindows()[1])
+					return
+				}
+				if quantity > 999 {
+					quantity = 1
+					quantityEntry.SetText("1")
+					dialog.ShowError(fmt.Errorf("加入购物车数量不能大于999"), fyne.CurrentApp().Driver().AllWindows()[1])
+					return
+				}
+			}
 			// 创建确认按钮
 			confirmButton := widget.NewButton("确认", func() {
 				quantityStr := quantityEntry.Text
