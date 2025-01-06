@@ -1,0 +1,6 @@
+.vs/
+test-api/
+x64/
+*.sln
+*.vcxproj*
+json.hpp

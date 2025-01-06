@@ -1,4 +1,5 @@
 #include "order_processor.h"
+#include "lock.h"
 #include <iostream>
 
 // 全局变量
@@ -84,8 +85,25 @@ void initializeInventory(redisContext* context) {
 // 原子化减少库存
 bool decreaseInventory(redisContext* context, int productId, int quantity) {
     std::lock_guard<std::mutex> lock(redisMutex);
-    std::string key = "inventory:" + std::to_string(productId);
 
+    // 分布式锁的键
+    std::string lockKey = "lock:product:" + std::to_string(productId);
+    int lockTimeout = 10; // 锁的超时时间（秒）
+
+    // 尝试获取分布式锁
+    if (!acquireLock(context, lockKey, lockTimeout)) {
+        std::cerr << "Failed to acquire lock for product " << productId << std::endl;
+        return false;
+    }
+
+    // 确保在函数结束时释放锁
+    auto releaseLockOnExit = [context, lockKey]() {
+        releaseLock(context, lockKey);
+        };
+    std::unique_ptr<void, decltype(releaseLockOnExit)> lockGuard(nullptr, releaseLockOnExit);
+
+    // 减少库存
+    std::string key = "inventory:" + std::to_string(productId);
     redisReply* reply = (redisReply*)redisCommand(context, "DECRBY %s %d", key.c_str(), quantity);
     if (reply == nullptr || reply->type == REDIS_REPLY_ERROR) {
         std::cerr << "Redis error: " << (reply ? reply->str : "Unknown error") << std::endl;
@@ -101,7 +119,7 @@ bool decreaseInventory(redisContext* context, int productId, int quantity) {
         return true;
     }
     else {
-        // 回滚库存
+        // 库存不足，恢复库存
         redisReply* restoreReply = (redisReply*)redisCommand(context, "INCRBY %s %d", key.c_str(), quantity);
         if (restoreReply == nullptr || restoreReply->type == REDIS_REPLY_ERROR) {
             std::cerr << "Failed to restore inventory for product " << productId << std::endl;
