@@ -15,9 +15,7 @@ func init() {
 	host := "localhost" //数据库地址
 	port := "3306"      //端口
 	dbname := "shop"    //数据库名
-	// timeout := "10s"    //连接超时，10s
 
-	//root:root@tcp(127.0.0.1:3306)/test？
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local", username, password, host, port, dbname) //连接mysql，获得DB类型实例，用于后面数据库的读写操作
 	db, err := gorm.Open(mysql.Open(dsn))
 	if err != nil {

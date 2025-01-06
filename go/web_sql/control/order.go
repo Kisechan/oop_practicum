@@ -87,7 +87,7 @@ func GetCheckResultHandler(c *gin.Context) {
 	// 返回订单结果
 	c.JSON(http.StatusOK, gin.H{
 		"order_number": orderNumber,
-		"result":       result, // 确保字段名与 pollOrderResult 的解析逻辑一致
+		"result":       result,
 	})
 }
 
