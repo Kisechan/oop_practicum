@@ -11,18 +11,18 @@ import (
 
 func GetProductsHandler(c *gin.Context) {
 	// 尝试从 Redis 缓存中获取商品信息
-	cacheKey := "random_products"
-	cachedProducts, err := redisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// 如果缓存中存在商品信息，直接返回
-		var products []rep.Product
-		if err := json.Unmarshal([]byte(cachedProducts), &products); err == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"products": products,
-			})
-			return
-		}
-	}
+	// cacheKey := "random_products"
+	// cachedProducts, err := redisClient.Get(ctx, cacheKey).Result()
+	// if err == nil {
+	// 	// 如果缓存中存在商品信息，直接返回
+	// 	var products []rep.Product
+	// 	if err := json.Unmarshal([]byte(cachedProducts), &products); err == nil {
+	// 		c.JSON(http.StatusOK, gin.H{
+	// 			"products": products,
+	// 		})
+	// 		return
+	// 	}
+	// }
 
 	// 随机商品
 	var products []rep.Product
@@ -32,10 +32,10 @@ func GetProductsHandler(c *gin.Context) {
 	}
 
 	// 将商品信息存入 Redis 缓存
-	productsJSON, err := json.Marshal(products)
-	if err == nil {
-		redisClient.Set(ctx, cacheKey, productsJSON, time.Hour) // 缓存 1 小时
-	}
+	// productsJSON, err := json.Marshal(products)
+	// if err == nil {
+	// 	redisClient.Set(ctx, cacheKey, productsJSON, time.Hour) // 缓存 1 小时
+	// }
 
 	// 返回商品信息
 	c.JSON(http.StatusOK, gin.H{
