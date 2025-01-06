@@ -95,3 +95,11 @@ var OrderStatus = map[string]string{
 	"shipping":  "配送中",
 	"completed": "已完成",
 }
+
+var Message = map[string]string{
+	"Insufficient inventory": "库存不足",
+	"Invalid coupon":         "无效优惠券",
+	"Order completed":        "下单成功",
+	"failed":                 "下单失败",
+	"success":                "成功",
+}
