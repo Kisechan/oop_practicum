@@ -94,21 +94,43 @@ func UpdateStockHandler(c *gin.Context) {
 		return
 	}
 
-	// 根据 product_id 查询商品
+	// 分布式锁的键
+	lockKey := fmt.Sprintf("lock:product:%d", request.ProductID)
+	lockTimeout := 10 * time.Second // 锁的超时时间
+
+	// 尝试获取分布式锁
+	lockAcquired, err := acquireLock(lockKey, lockTimeout)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to acquire lock"})
+		return
+	}
+	if !lockAcquired {
+		c.JSON(http.StatusConflict, gin.H{"error": "Failed to acquire lock, please retry"})
+		return
+	}
+
+	// 确保在函数结束时释放锁
+	defer func() {
+		if err := releaseLock(lockKey); err != nil {
+			fmt.Println("Failed to release lock:", err)
+		}
+	}()
+
+	// 查询商品库存
 	var product rep.Product
 	if err := rep.DB.First(&product, request.ProductID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
 		return
 	}
 
-	// 更新库存
+	// 计算新的库存
 	newStock := product.Stock + request.Quantity
 	if newStock < 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
 		return
 	}
 
-	// 更新数据库中的库存
+	// 更新库存
 	product.Stock = newStock
 	if err := rep.DB.Save(&product).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
