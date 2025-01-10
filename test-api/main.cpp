@@ -101,7 +101,7 @@ void sendHttpRequest(int threadId, const std::string& orderNumber) {
 }
 
 int main() {
-    const int n = 10; // 线程数量
+    const int n = 5; // 线程数量
     std::vector<std::thread> threads;
 
     for (int i = 0; i < n; ++i) {

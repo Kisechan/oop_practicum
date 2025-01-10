@@ -1,4 +1,5 @@
 #include "order_processor.h"
+#include "lock.h"
 #include <iostream>
 
 // 全局变量
@@ -198,10 +199,26 @@ void persistOrderAsync(const json::value& order) {
         }).detach();
 }
 
-// 异步更新库存信息
-void updateStockAsync(int productId, int quantity) {
-    std::thread([productId, quantity]() {
+void updateStockAsync(redisContext* context, int productId, int quantity) {
+    std::thread([context, productId, quantity]() {
         try {
+            // 分布式锁的键
+            std::string lockKey = "lock:product:" + std::to_string(productId);
+            int lockTimeout = 10; // 锁的超时时间（秒）
+
+            // 尝试获取分布式锁
+            if (!acquireLock(context, lockKey, lockTimeout)) {
+                std::cerr << "Failed to acquire lock for product " << productId << std::endl;
+                return;
+            }
+
+            // 确保在函数结束时释放锁
+            auto releaseLockOnExit = [context, lockKey]() {
+                releaseLock(context, lockKey);
+                };
+            std::unique_ptr<void, decltype(releaseLockOnExit)> lockGuard(nullptr, releaseLockOnExit);
+
+            // 执行库存更新操作
             asio::io_context ioContext;
             tcp::resolver resolver(ioContext);
             auto const results = resolver.resolve("localhost", "8081");
@@ -227,6 +244,8 @@ void updateStockAsync(int productId, int quantity) {
             http::read(socket, buffer, res);
 
             socket.shutdown(tcp::socket::shutdown_both);
+
+            std::cout << "Stock updated successfully for product " << productId << std::endl;
         }
         catch (const std::exception& e) {
             std::cerr << "Error updating stock: " << e.what() << std::endl;
@@ -328,7 +347,7 @@ void processCheckoutRequest(const std::string& requestJson) {
         // 异步更新库存信息
         std::cout << "Start Updating Stock Asyncly" << std::endl;
 
-        updateStockAsync(productId, quantity);
+        updateStockAsync(context,productId, quantity);
 
         // 推送成功结果到 Redis
         json::value result = {
