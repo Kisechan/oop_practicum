@@ -57,16 +57,16 @@ void sendHttpRequest(int threadId, const std::string& orderNumber) {
         http::response<http::dynamic_body> res;
         http::read(socket, buffer, res);
 
-        // ½âÎöÏìÓ¦
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦
         std::string responseBody = beast::buffers_to_string(res.body().data());
         json::value jsonResponse = json::parse(responseBody);
 
         if (res.result() == http::status::ok) {
             std::cout << "Thread " << threadId << ": Checkout successful. Order number: " << orderNumber << std::endl;
 
-            // ÂÖÑ¯»ñÈ¡¶©µ¥½á¹û
+            // ï¿½ï¿½Ñ¯ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             while (true) {
-                // ¹¹Ôì GET ÇëÇó
+                // ï¿½ï¿½ï¿½ï¿½ GET ï¿½ï¿½ï¿½ï¿½
                 http::request<http::string_body> getReq{ http::verb::get, "/orders/checkout/result/" + orderNumber, 11 };
                 getReq.set(http::field::host, "localhost");
 
@@ -85,7 +85,7 @@ void sendHttpRequest(int threadId, const std::string& orderNumber) {
                     break;
                 }
                 else {
-                    std::this_thread::sleep_for(std::chrono::seconds(1)); // µÈ´ý 1 ÃëºóÖØÊÔ
+                    std::this_thread::sleep_for(std::chrono::seconds(1)); // ï¿½È´ï¿½ 1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 }
             }
         }
@@ -101,7 +101,7 @@ void sendHttpRequest(int threadId, const std::string& orderNumber) {
 }
 
 int main() {
-    const int n = 5; // Ïß³ÌÊýÁ¿
+    const int n = 5; // ï¿½ß³ï¿½ï¿½ï¿½ï¿½ï¿½
     std::vector<std::thread> threads;
 
     for (int i = 0; i < n; ++i) {
