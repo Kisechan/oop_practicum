@@ -169,13 +169,13 @@ func fetchProductsFromAPI(search string) ([]Product, error) {
 		// }
 
 		// 发送搜索请求
-		resp, err = http.Post("http://localhost:8080/products/search?name="+search, "application/json", nil)
+		resp, err = http.Post(ServerAddress+"products/search?name="+search, "application/json", nil)
 		if err != nil {
 			fmt.Println("Error get request:", err)
 			return nil, err
 		}
 	} else {
-		resp, err = http.Get("http://localhost:8080/products")
+		resp, err = http.Get(ServerAddress + "products")
 		if err != nil {
 			fmt.Println("Error get request:", err)
 			return nil, err
@@ -209,7 +209,7 @@ func showProductDetailWindow(product Product) {
 
 	// 设置窗口内容
 	detailWindow.SetContent(detailPage)
-	detailWindow.Resize(fyne.NewSize(680, 400)) // 设置窗口大小
+	detailWindow.Resize(fyne.NewSize(360, 780)) // 设置窗口大小
 	detailWindow.Show()
 }
 
@@ -417,7 +417,7 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 					return
 				}
 
-				resp, err := http.Post("http://localhost:8080/cart/items", "application/json", bytes.NewBuffer(cartItemJSON))
+				resp, err := http.Post(ServerAddress+"cart/items", "application/json", bytes.NewBuffer(cartItemJSON))
 				if err != nil {
 					dialog.ShowError(fmt.Errorf("发送请求失败: %v", err), fyne.CurrentApp().Driver().AllWindows()[1])
 					return
@@ -469,7 +469,7 @@ func createProductDetailPage(product Product) fyne.CanvasObject {
 
 // 获取评论
 func fetchReviewsFromAPI(productID int) ([]Review, error) {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:8080/reviews/product/%d", productID))
+	resp, err := http.Get(fmt.Sprintf(ServerAddress+"reviews/product/%d", productID))
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +509,7 @@ func sendReview(productID int, rating, comment string) {
 		return
 	}
 
-	resp, err := http.Post("http://localhost:8080/reviews/", "application/json", bytes.NewBuffer(reviewJSON))
+	resp, err := http.Post(ServerAddress+"reviews/", "application/json", bytes.NewBuffer(reviewJSON))
 	if err != nil {
 		fmt.Println("Error sending review:", err)
 		return

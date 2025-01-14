@@ -50,7 +50,7 @@ func placeOrderCart(userID, productID, quantity int, couponCode string, discount
 		return "", fmt.Errorf("编码订单请求失败: %v", err)
 	}
 
-	resp, err := http.Post("http://localhost:8080/orders/checkout", "application/json", bytes.NewBuffer(orderJSON))
+	resp, err := http.Post(ServerAddress+"orders/checkout", "application/json", bytes.NewBuffer(orderJSON))
 	if err != nil {
 		return "", fmt.Errorf("发送订单请求失败: %v", err)
 	}
@@ -65,7 +65,7 @@ func placeOrderCart(userID, productID, quantity int, couponCode string, discount
 
 func pollOrderResultCart(orderNumber string) (string, string, error) {
 	for {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:8080/orders/checkout/result/%s", orderNumber))
+		resp, err := http.Get(fmt.Sprintf(ServerAddress+"orders/checkout/result/%s", orderNumber))
 		if err != nil {
 			return "错误", "订单结果查询失败", fmt.Errorf("轮询订单结果失败: %v", err)
 		}

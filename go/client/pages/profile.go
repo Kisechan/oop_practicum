@@ -65,7 +65,7 @@ func createLoginPage() fyne.CanvasObject {
 		// 显示注册页面
 		registerWindow := fyne.CurrentApp().NewWindow("注册")
 		registerWindow.SetContent(createRegisterPage())
-		registerWindow.Resize(fyne.NewSize(680, 400))
+		registerWindow.Resize(fyne.NewSize(360, 780))
 		registerWindow.Show()
 	})
 
@@ -102,7 +102,7 @@ func login(phone, password string) (*User, error) {
 	}
 
 	// 发送 POST 请求
-	resp, err := http.Post("http://localhost:8080/users/login", "application/json", bytes.NewBuffer(loginJSON))
+	resp, err := http.Post(ServerAddress+"users/login", "application/json", bytes.NewBuffer(loginJSON))
 	if err != nil {
 		return nil, fmt.Errorf("发送登录请求失败: %v", err)
 	}
@@ -205,7 +205,7 @@ func register(username, password, phone, email, address string) error {
 	}
 
 	// 发送 POST 请求
-	resp, err := http.Post("http://localhost:8080/users/register", "application/json", bytes.NewBuffer(registerJSON))
+	resp, err := http.Post(ServerAddress+"users/register", "application/json", bytes.NewBuffer(registerJSON))
 	if err != nil {
 		return fmt.Errorf("发送注册请求失败: %v", err)
 	}
@@ -437,7 +437,7 @@ func updateUserInfo(user *User) error {
 	}
 
 	// 发送 PUT 请求
-	req, err := http.NewRequest(http.MethodPut, "http://localhost:8080/users/profile", bytes.NewBuffer(updateJSON))
+	req, err := http.NewRequest(http.MethodPut, ServerAddress+"users/profile", bytes.NewBuffer(updateJSON))
 	if err != nil {
 		return fmt.Errorf("创建请求失败: %v", err)
 	}
@@ -477,7 +477,7 @@ func changePassword(userID int, oldPassword, newPassword string) error {
 	}
 
 	// 发送 PUT 请求
-	req, err := http.NewRequest(http.MethodPut, "http://localhost:8080/users/change-password", bytes.NewBuffer(changePasswordJSON))
+	req, err := http.NewRequest(http.MethodPut, ServerAddress+"users/change-password", bytes.NewBuffer(changePasswordJSON))
 	if err != nil {
 		return fmt.Errorf("创建请求失败: %v", err)
 	}
@@ -501,7 +501,7 @@ func changePassword(userID int, oldPassword, newPassword string) error {
 // 获取用户信息
 // func fetchUserInfo(userID int) (*User, error) {
 // 	// 发送 GET 请求
-// 	resp, err := http.Get(fmt.Sprintf("http://localhost:8080/users/profile/%d", userID))
+// 	resp, err := http.Get(fmt.Sprintf(ServerAddress+"users/profile/%d", userID))
 // 	if err != nil {
 // 		return nil, fmt.Errorf("发送请求失败: %v", err)
 // 	}

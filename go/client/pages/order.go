@@ -67,7 +67,7 @@ func fetchOrders(orderItems *fyne.Container) {
 		fmt.Println("未登录")
 		return
 	}
-	resp, err := http.Get("http://localhost:8080/orders/" + fmt.Sprintf("%d", currentUser.ID))
+	resp, err := http.Get(ServerAddress + "orders/" + fmt.Sprintf("%d", currentUser.ID))
 	if err != nil {
 		fmt.Println("获取订单信息失败:", err)
 		return
