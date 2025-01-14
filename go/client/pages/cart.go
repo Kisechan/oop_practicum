@@ -159,7 +159,7 @@ func fetchCartItems(cartItems *[]Cart, cartList *widget.List) {
 		fmt.Println("未登录")
 		return
 	}
-	resp, err := http.Get("http://localhost:8080/cart/items?user_id=" + fmt.Sprintf("%d", currentUser.ID))
+	resp, err := http.Get(ServerAddress + "cart/items?user_id=" + fmt.Sprintf("%d", currentUser.ID))
 	if err != nil {
 		fmt.Println("获取购物车信息失败:", err)
 		return
@@ -190,7 +190,7 @@ func fetchCartItems(cartItems *[]Cart, cartList *widget.List) {
 // 删除购物车项
 func deleteCartItem(cartItemID int, cartItems *[]Cart, cartList *widget.List) {
 	// 调用 API 删除购物车项
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:8080/cart/items/%d", cartItemID), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf(ServerAddress+"cart/items/%d", cartItemID), nil)
 	if err != nil {
 		fmt.Println("创建删除请求失败:", err)
 		return

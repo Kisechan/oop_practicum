@@ -7,6 +7,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+var ServerAddress = "https://localhost:8080/"
+
 func CreateSettingsPage() fyne.CanvasObject {
 	// 创建主题切换的单选按钮组
 	themeOptions := []string{"关", "开"}
@@ -21,6 +23,12 @@ func CreateSettingsPage() fyne.CanvasObject {
 	})
 	themeRadio.Horizontal = true // 水平排列单选按钮
 	themeRadio.SetSelected("关")  // 默认选择 Light 模式
+
+	ServerAddressBox := widget.NewEntry()
+	ServerAddressBox.SetText("https://localhost:8080/")
+	ServerAddressBox.OnChanged = func(text string) {
+		ServerAddress = text
+	}
 
 	// 创建设置页面的布局
 	settingsPage := container.NewVBox(
@@ -40,6 +48,11 @@ func CreateSettingsPage() fyne.CanvasObject {
 			2,
 			widget.NewLabel("夜间模式："),
 			themeRadio,
+		),
+		container.NewGridWithColumns(
+			2,
+			widget.NewLabel("服务器地址"),
+			ServerAddressBox,
 		))
 
 	return settingsPage
