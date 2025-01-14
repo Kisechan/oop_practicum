@@ -25,7 +25,7 @@ func CreateSettingsPage() fyne.CanvasObject {
 	themeRadio.SetSelected("关")  // 默认选择 Light 模式
 
 	ServerAddressBox := widget.NewEntry()
-	ServerAddressBox.SetText("https://localhost:8080/")
+	ServerAddressBox.SetText("")
 	ServerAddressBox.OnChanged = func(text string) {
 		ServerAddress = text
 	}
