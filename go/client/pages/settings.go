@@ -30,7 +30,6 @@ func CreateSettingsPage() fyne.CanvasObject {
 		ServerAddress = text
 	}
 
-	// 创建设置页面的布局
 	settingsPage := container.NewVBox(
 		widget.NewRichText(
 			&widget.TextSegment{
